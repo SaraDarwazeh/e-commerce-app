@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getProductById, createProduct, updateProduct, uploadProductImage } from '../../services/productService';
 import { getOptionTemplates } from '../../services/optionTemplateService';
 import { getCategories } from '../../services/categoryService';
-import { Trash2, Plus, Upload, X } from 'lucide-react';
+import { Trash2, Plus, Upload, X, Loader } from 'lucide-react';
 import useUIStore from '../../store/uiStore';
 import BackButton from '../../components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,8 @@ export default function ProductForm() {
 
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageInputRef = useRef(null);
   const [templates, setTemplates] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -34,6 +36,7 @@ export default function ProductForm() {
     isFeatured: false,
     isActive: true,
     images: [],
+    colors: [],
     options: [],
     defaultSelections: {},
     ribbonEnabled: false,
@@ -66,6 +69,8 @@ export default function ProductForm() {
               price: prod.price || '',
               comparePrice: prod.comparePrice || '',
               stock: prod.stock || '',
+              images: prod.images || [],
+              colors: prod.colors || [],
               options: prod.options || [],
               defaultSelections: prod.defaultSelections || {},
               ribbonEnabled: prod.ribbonEnabled || false,
@@ -97,14 +102,24 @@ export default function ProductForm() {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      addToast(t('admin.invalidImageType', 'Please upload a valid image file.'), 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      addToast(t('admin.imageTooLarge', 'Image must be less than 5MB.'), 'error');
+      return;
+    }
     try {
-      setIsSaving(true);
+      setIsUploadingImage(true);
       const url = await uploadProductImage(file);
       setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+      addToast(t('admin.uploadSuccess', 'Image uploaded!'), 'success');
     } catch (err) {
-      addToast(t('admin.uploadImageFailed'), "error");
+      addToast(t('admin.uploadImageFailed'), 'error');
     } finally {
-      setIsSaving(false);
+      setIsUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
     }
   };
 
@@ -382,13 +397,29 @@ export default function ProductForm() {
                 </button>
               </div>
             ))}
-            <label className="w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-brand-500 transition-colors">
-              <Upload className="w-6 h-6 text-gray-400 mb-2" />
-              <span className="text-xs text-gray-500 font-medium text-center px-2">{t('admin.uploadImage')}</span>
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+            <label className={`w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isUploadingImage ? 'border-brand-300 bg-brand-50 cursor-wait' : 'border-gray-300 hover:bg-gray-50 hover:border-brand-500'}`}>
+              {isUploadingImage ? (
+                <>
+                  <Loader className="w-6 h-6 text-brand-500 mb-1 animate-spin" />
+                  <span className="text-xs text-brand-600 font-medium">{t('admin.uploading', 'Uploading...')}</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                  <span className="text-xs text-gray-500 font-medium text-center px-2">{t('admin.uploadImage')}</span>
+                </>
+              )}
+              <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={isUploadingImage} />
             </label>
           </div>
         </div>
+
+        {/* Colors */}
+        <ColorsSection
+          colors={formData.colors}
+          onChange={(colors) => setFormData(prev => ({ ...prev, colors }))}
+          t={t}
+        />
 
         {/* Dynamic Options */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
@@ -491,5 +522,141 @@ function ValueAdder({ onAdd, isColor }) {
       </button>
     </div>
   )
+}
+
+// --- Reusable multi-color palette picker ---
+const COLOR_PALETTE = [
+  { name: 'Black',       hex: '#111111' },
+  { name: 'White',       hex: '#FFFFFF' },
+  { name: 'Gray',        hex: '#6B7280' },
+  { name: 'Silver',      hex: '#C0C0C0' },
+  { name: 'Red',         hex: '#EF4444' },
+  { name: 'Pink',        hex: '#EC4899' },
+  { name: 'Rose',        hex: '#F43F5E' },
+  { name: 'Orange',      hex: '#F97316' },
+  { name: 'Yellow',      hex: '#EAB308' },
+  { name: 'Gold',        hex: '#D4AF37' },
+  { name: 'Lime',        hex: '#84CC16' },
+  { name: 'Green',       hex: '#22C55E' },
+  { name: 'Teal',        hex: '#14B8A6' },
+  { name: 'Cyan',        hex: '#06B6D4' },
+  { name: 'Sky',         hex: '#38BDF8' },
+  { name: 'Blue',        hex: '#3B82F6' },
+  { name: 'Indigo',      hex: '#6366F1' },
+  { name: 'Violet',      hex: '#8B5CF6' },
+  { name: 'Purple',      hex: '#A855F7' },
+  { name: 'Brown',       hex: '#92400E' },
+  { name: 'Beige',       hex: '#D2B48C' },
+  { name: 'Cream',       hex: '#FFFDD0' },
+  { name: 'Navy',        hex: '#1E3A5F' },
+  { name: 'Olive',       hex: '#708238' },
+];
+
+function ColorsSection({ colors, onChange, t }) {
+  const [customHex, setCustomHex] = useState('#888888');
+
+  const toggleColor = (hex) => {
+    if (colors.includes(hex)) {
+      onChange(colors.filter(c => c !== hex));
+    } else {
+      onChange([...colors, hex]);
+    }
+  };
+
+  const addCustom = () => {
+    if (!colors.includes(customHex)) {
+      onChange([...colors, customHex]);
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-5">
+      <h2 className="text-lg font-bold text-gray-900 border-b pb-2">
+        {t('admin.productColors', 'Product Colors')}
+      </h2>
+
+      {/* Selected swatches */}
+      {colors.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            {t('admin.selectedColors', 'Selected Colors')} ({colors.length})
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {colors.map(hex => (
+              <div
+                key={hex}
+                className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 shadow-sm"
+              >
+                <div
+                  className="w-4 h-4 rounded-full border border-gray-300 shadow-inner flex-shrink-0"
+                  style={{ backgroundColor: hex }}
+                />
+                <span className="text-xs font-mono text-gray-600">{hex}</span>
+                <button
+                  type="button"
+                  onClick={() => onChange(colors.filter(c => c !== hex))}
+                  className="text-gray-400 hover:text-red-500 ml-1"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Curated palette */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          {t('admin.colorPalette', 'Color Palette — click to select')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {COLOR_PALETTE.map(({ name, hex }) => {
+            const selected = colors.includes(hex);
+            return (
+              <button
+                key={hex}
+                type="button"
+                title={name}
+                onClick={() => toggleColor(hex)}
+                className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none ${
+                  selected
+                    ? 'border-brand-600 ring-2 ring-brand-400 ring-offset-1 scale-110'
+                    : 'border-gray-300 hover:border-gray-500'
+                }`}
+                style={{ backgroundColor: hex }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Custom hex */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          {t('admin.customColor', 'Custom Color')}
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={customHex}
+            onChange={e => setCustomHex(e.target.value)}
+            className="w-10 h-10 rounded border border-gray-300 cursor-pointer p-0 bg-white"
+          />
+          <span className="text-sm font-mono text-gray-600">{customHex}</span>
+          <button
+            type="button"
+            onClick={addCustom}
+            disabled={colors.includes(customHex)}
+            className="px-4 py-2 bg-gray-100 border border-gray-200 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {colors.includes(customHex)
+              ? t('admin.colorAdded', 'Added ✓')
+              : `+ ${t('admin.addColor', 'Add Color')}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 

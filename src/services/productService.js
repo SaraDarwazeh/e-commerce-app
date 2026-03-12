@@ -1,4 +1,5 @@
 import { db } from '../firebase/config';
+import { uploadImage } from './uploadService';
 import {
   collection,
   doc,
@@ -15,14 +16,12 @@ import {
 const PRODUCTS_COLLECTION = 'products';
 
 /**
- * Upload image (mock – real Storage upload goes here later)
+ * Upload a product image to Firebase Storage.
+ * Returns the public download URL.
  */
 export const uploadProductImage = async (file) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(`https://placehold.co/400x400?text=Uploaded+Image`);
-    }, 1000);
-  });
+  const { url } = await uploadImage(file, 'products');
+  return url;
 };
 
 /**
