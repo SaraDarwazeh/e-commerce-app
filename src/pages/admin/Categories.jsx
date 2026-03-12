@@ -194,21 +194,23 @@ export default function Categories() {
                       {cat.isActive !== false ? t('admin.active') : t('admin.hidden')}
                     </button>
                   </td>
-                  <td className="px-6 py-4 text-right space-x-3 rtl:space-x-reverse">
-                    <button
-                      onClick={() => handleOpenModal(cat)}
-                      className="text-brand-600 hover:text-brand-900 font-medium inline-flex items-center"
-                      title={t('admin.edit')}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(cat)}
-                      className="text-red-500 hover:text-red-700 font-medium inline-flex items-center"
-                      title={t('admin.delete')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-3 justify-end items-center">
+                      <button
+                        onClick={() => handleOpenModal(cat)}
+                        className="text-brand-600 hover:text-brand-900 font-medium p-2 rounded-lg hover:bg-brand-50 transition-colors"
+                        title={t('admin.edit')}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(cat)}
+                        className="text-red-500 hover:text-red-700 font-medium p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title={t('admin.delete')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

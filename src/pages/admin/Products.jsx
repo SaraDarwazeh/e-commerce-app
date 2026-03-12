@@ -151,9 +151,11 @@ export default function AdminProducts() {
                         {product.isActive ? t('admin.active') : t('admin.hidden')}
                       </button>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-3 rtl:space-x-reverse">
-                      <Link to={`/admin/products/edit/${product.id}`} className="text-brand-600 hover:text-brand-800 font-medium">{t('admin.edit')}</Link>
-                      <button onClick={() => handleDelete(product.id)} className="text-red-600 hover:text-red-800 font-medium">{t('admin.delete')}</button>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-3 items-center whitespace-nowrap">
+                        <Link to={`/admin/products/edit/${product.id}`} className="text-brand-600 hover:text-brand-800 font-medium bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors">{t('admin.edit')}</Link>
+                        <button onClick={() => handleDelete(product.id)} className="text-red-600 hover:text-red-800 font-medium bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">{t('admin.delete')}</button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -86,9 +86,13 @@ export default function MyOrders() {
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
-      case 'delivered': return 'bg-green-100 text-green-700';
+      case 'processing': return 'bg-brand-100 text-brand-700';
       case 'shipped': return 'bg-blue-100 text-blue-700';
-      case 'processing': return 'bg-yellow-100 text-yellow-700';
+      case 'delivered': return 'bg-green-100 text-green-700';
+      case 'cancelled':
+      case 'canceled':
+      case 'ملغي': return 'bg-red-100 text-red-700';
+      case 'confirmed': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -139,8 +143,8 @@ export default function MyOrders() {
               <h3 className="font-bold text-gray-900 uppercase tracking-wider text-xs">{t('orders.deliveryDetails')}</h3>
               <div>
                 <p className="font-medium text-gray-900">{selectedOrder.customerName}</p>
-                <p className="text-sm text-gray-600 mt-1">{selectedOrder.address || selectedOrder.shippingAddress?.address || t('orders.noAddress')}</p>
-                <p className="text-sm text-gray-600">{selectedOrder.shippingRegion || selectedOrder.shippingAddress?.region || 'West Bank'}</p>
+                <p className="text-sm text-gray-600 mt-1">{selectedOrder.address || t('orders.noAddress')}</p>
+                <p className="text-sm text-gray-600">{selectedOrder.deliveryRegion || 'West Bank'}</p>
                 {selectedOrder.notes && <p className="text-sm text-amber-700 bg-amber-50 p-2 mt-2 rounded">{t('orders.note', { note: selectedOrder.notes })}</p>}
               </div>
             </div>
@@ -161,7 +165,7 @@ export default function MyOrders() {
                   )}
                   <div className="flex justify-between text-gray-600">
                     <span>{t('orders.shipping')}</span>
-                    <span>₪{Number(selectedOrder.shippingCost || selectedOrder.totals?.shipping || 0).toFixed(2)}</span>
+                    <span>₪{Number(selectedOrder.deliveryCost || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-200 mt-2">
                     <span>{t('orders.total')}</span>

@@ -1,4 +1,4 @@
-import { TrendingUp, Users, ShoppingBag, DollarSign, Download, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { TrendingUp, Users, ShoppingBag, DollarSign, Download, AlertCircle, Image as ImageIcon, Eye } from 'lucide-react';
 import { seedBagsToFirestore } from '../../scripts/seedBags';
 import { autoAssignCategoryImages } from '../../scripts/seedCategoryImages';
 import { useState, useEffect } from 'react';
@@ -7,6 +7,7 @@ import { getOrders } from '../../services/orderService';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
@@ -106,14 +107,15 @@ export default function AdminDashboard() {
       new Date(order.date).toLocaleString(),
       `"${order.customerName || 'Guest'}"`,
       `"${order.customerEmail || 'N/A'}"`,
-      `"${order.customerPhone || 'N/A'}"`,
-      `"${order.shippingRegion || order.shippingAddress?.region || 'N/A'}"`,
-      `"${order.address || order.shippingAddress?.address || 'N/A'}"`,
+      `"${order.customerPhone}"`,
+      `"${order.deliveryRegion}"`,
+      `"${order.address}"`,
       order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Direct Payment',
       order.paymentStatus || (order.paymentMethod === 'cod' ? 'unpaid' : 'pending_verification'),
       order.status || 'Pending',
       Number(order.subtotal || 0).toFixed(2),
-      Number(order.shippingCost || 0).toFixed(2),
+      Number(order.deliveryCost || 0).toFixed(2),
+      Number(order.discountAmount || 0).toFixed(2),
       Number(order.total || 0).toFixed(2)
     ]);
 
@@ -183,29 +185,7 @@ export default function AdminDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">{t('admin.dashboard')}</h1>
         <div className="space-x-3 rtl:space-x-reverse flex items-center">
-          <button
-            disabled={isSeeding}
-            onClick={handleSeed}
-            className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
-          >
-            {isSeeding ? '...' : t('admin.seedData')}
-          </button>
-          <button
-            disabled={isAssigning}
-            onClick={handleAssignImages}
-            className="bg-brand-100 text-brand-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-200 disabled:opacity-50"
-            title="Automatically assign luxury bag images to URL-less categories"
-          >
-            <ImageIcon size={16} />
-            {isAssigning ? '...' : t('admin.fixCategoryImages')}
-          </button>
-          <button
-            onClick={handleDownloadReport}
-            disabled={isLoading}
-            className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 inline-flex"
-          >
-            <Download size={16} /> {t('admin.exportCSV')}
-          </button>
+          {/* Action buttons removed per requirements for a cleaner dashboard */}
         </div>
       </div>
 
@@ -286,6 +266,7 @@ export default function AdminDashboard() {
                 <th className="px-6 py-4 font-medium">{t('admin.date')}</th>
                 <th className="px-6 py-4 font-medium">{t('admin.total')}</th>
                 <th className="px-6 py-4 font-medium">{t('admin.status')}</th>
+                <th className="px-6 py-4 font-medium text-right">{t('admin.actions') || 'Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -294,14 +275,24 @@ export default function AdminDashboard() {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 border-t border-gray-100">#{order.id}</td>
                   <td className="px-6 py-4 text-sm text-gray-600 border-t border-gray-100">{order.customerName || 'Guest'}</td>
                   <td className="px-6 py-4 text-sm text-gray-600 border-t border-gray-100">{new Date(order.date).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 border-t border-gray-100">{t('admin.currencySign')}{order.total.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm">
+                  <td className="px-6 py-4 text-sm font-bold text-gray-900 border-t border-gray-100">{t('admin.currencySign')}{Number(order.total).toFixed(2)}</td>
+                  <td className="px-6 py-4 text-sm border-t border-gray-100">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium 
-                      ${order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
-                        order.status === 'Shipped' ? 'bg-blue-100 text-blue-700' :
-                          'bg-yellow-100 text-yellow-700'}`}>
+                      ${order.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                        order.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                          ((order.status || '').toLowerCase() === 'cancelled' || (order.status || '').toLowerCase() === 'ملغي' || (order.status || '').toLowerCase() === 'canceled') ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'}`}>
                       {order.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-right border-t border-gray-100">
+                    <Link
+                      to="/admin/orders"
+                      state={{ openOrderId: order.id }}
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1 text-sm font-medium"
+                    >
+                      <Eye size={16} /> <span className="hidden sm:inline">{t('admin.viewDetails')}</span>
+                    </Link>
                   </td>
                 </tr>
               ))}

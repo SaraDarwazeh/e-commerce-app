@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getOrders, updateOrderStatus, updatePaymentStatus } from '../../services/orderService';
 import useUIStore from '../../store/uiStore';
-import { ChevronLeft, Package, Clock, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronLeft, Package, Clock, Truck, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getTranslatedStatus, getTranslatedPaymentStatus } from '../../utils/statusHelpers';
 
@@ -12,6 +13,7 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All Statuses');
   const [search, setSearch] = useState('');
+  const location = useLocation();
 
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -20,6 +22,10 @@ export default function AdminOrders() {
     try {
       const data = await getOrders();
       setOrders(data);
+      if (location.state?.openOrderId) {
+        const opened = data.find(o => o.id === location.state.openOrderId);
+        if (opened) setSelectedOrder(opened);
+      }
     } catch (err) {
       addToast(err.message, 'error');
     } finally {
@@ -87,6 +93,10 @@ export default function AdminOrders() {
       case 'delivered': return 'bg-green-100 text-green-700';
       case 'shipped': return 'bg-blue-100 text-blue-700';
       case 'processing': return 'bg-yellow-100 text-yellow-700';
+      case 'cancelled':
+      case 'canceled':
+      case 'ملغي': return 'bg-red-100 text-red-700';
+      case 'confirmed': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -158,7 +168,7 @@ export default function AdminOrders() {
                 )}
                 <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200 border-dashed">
                   <span className="text-gray-600">{t('admin.shippingCost')}</span>
-                  <span className="font-medium text-gray-900">₪{selectedOrder.shippingCost.toFixed(2)}</span>
+                  <span className="font-medium text-gray-900">₪{Number(selectedOrder.deliveryCost || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-900">{t('admin.total')}</span>
@@ -179,11 +189,11 @@ export default function AdminOrders() {
                   onChange={(e) => handleStatusChangeDirect(selectedOrder.id, e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-brand-500 font-medium"
                 >
-                  <option value="Processing">Processing</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Delivered">Delivered</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="Processing">{getTranslatedStatus('Processing', t)}</option>
+                  <option value="Confirmed">{getTranslatedStatus('Confirmed', t)}</option>
+                  <option value="Shipped">{getTranslatedStatus('Shipped', t)}</option>
+                  <option value="Delivered">{getTranslatedStatus('Delivered', t)}</option>
+                  <option value="Cancelled">{getTranslatedStatus('Cancelled', t)}</option>
                 </select>
               </div>
               <h3 className="font-bold text-gray-900 mb-4 mt-6 uppercase tracking-wider text-xs border-t border-gray-100 pt-4">{t('admin.paymentTracking')}</h3>
@@ -193,10 +203,10 @@ export default function AdminOrders() {
                   onChange={(e) => handlePaymentStatusChange(selectedOrder.id, e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-brand-500 font-medium"
                 >
-                  <option value="unpaid">Unpaid</option>
-                  <option value="pending_verification">Pending Verification</option>
-                  <option value="paid">Paid (Collected)</option>
-                  <option value="failed">Failed</option>
+                  <option value="unpaid">{getTranslatedPaymentStatus('unpaid', t)}</option>
+                  <option value="pending_verification">{getTranslatedPaymentStatus('pending_verification', t)}</option>
+                  <option value="paid">{getTranslatedPaymentStatus('paid', t)}</option>
+                  <option value="failed">{getTranslatedPaymentStatus('failed', t)}</option>
                 </select>
               </div>
             </div>
@@ -226,7 +236,7 @@ export default function AdminOrders() {
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-gray-500 mb-1">{t('admin.region') || 'Region'}</div>
-                  <div className="font-medium text-gray-900">{selectedOrder.shippingRegion}</div>
+                  <div className="font-medium text-gray-900">{selectedOrder.deliveryRegion}</div>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500 mb-1">{t('admin.addressLabel') || 'Address'}</div>
@@ -274,11 +284,12 @@ export default function AdminOrders() {
               onChange={(e) => setFilter(e.target.value)}
               className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
-              <option>All Statuses</option>
-              <option>Processing</option>
-              <option>Shipped</option>
-              <option>Delivered</option>
-              <option>Cancelled</option>
+              <option value="All Statuses">{t('admin.allStatuses') || 'All Statuses'}</option>
+              <option value="Processing">{getTranslatedStatus('Processing', t)}</option>
+              <option value="Confirmed">{getTranslatedStatus('Confirmed', t)}</option>
+              <option value="Shipped">{getTranslatedStatus('Shipped', t)}</option>
+              <option value="Delivered">{getTranslatedStatus('Delivered', t)}</option>
+              <option value="Cancelled">{getTranslatedStatus('Cancelled', t)}</option>
             </select>
           </div>
         </div>
@@ -338,12 +349,14 @@ export default function AdminOrders() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelectedOrder(order)}
-                          className="text-brand-600 hover:text-brand-800 font-medium bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          {t('admin.viewDetails')}
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                          >
+                            <Eye size={16} /> <span className="hidden md:inline">{t('admin.viewDetails')}</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -118,7 +118,7 @@ export default function Cart() {
 
                 <div className="flex justify-between text-gray-600">
                   <span>{t('cart.shipping')}</span>
-                  <span>{totals.shipping === 0 ? t('cart.free') : `₪${totals.shipping.toFixed(2)}`}</span>
+                  <span className="font-medium">{totals.deliveryCost === 0 ? t('cart.free') : `₪${totals.deliveryCost.toFixed(2)}`}</span>
                 </div>
 
                 <div className="border-t border-gray-200 pt-3 flex justify-between font-bold text-lg text-gray-900">

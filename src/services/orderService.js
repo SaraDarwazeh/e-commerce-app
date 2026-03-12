@@ -27,7 +27,7 @@ export const createOrder = async (orderData) => {
 const normalizeOrder = (id, data) => {
   const total = Number(data.total ?? data.totals?.total ?? 0);
   const subtotal = Number(data.subtotal ?? data.totals?.subtotal ?? 0);
-  const shippingCost = Number(data.shippingCost ?? data.totals?.shipping ?? 0);
+  const deliveryCost = Number(data.deliveryCost ?? data.totals?.deliveryCost ?? data.shippingCost ?? data.totals?.shipping ?? 0);
   const discountAmount = Number(data.discountAmount ?? data.totals?.discountAmount ?? 0);
 
   const date = data.createdAt?.toDate
@@ -43,7 +43,7 @@ const normalizeOrder = (id, data) => {
     // Guaranteed flat financial fields
     total,
     subtotal,
-    shippingCost,
+    deliveryCost,
     discountAmount,
     // Guaranteed metadata
     date,
@@ -55,7 +55,7 @@ const normalizeOrder = (id, data) => {
     customerName: data.customerName || 'Guest',
     customerEmail: data.customerEmail || 'N/A',
     customerPhone: data.customerPhone || data.phone || 'N/A',
-    shippingRegion: data.shippingRegion || data.shippingAddress?.region || 'N/A',
+    deliveryRegion: data.deliveryRegion || data.shippingRegion || data.shippingAddress?.region || 'N/A',
     address: data.address || data.shippingAddress?.address || 'N/A',
     notes: data.notes || data.shippingAddress?.notes || '',
     couponCode: data.couponCode || null

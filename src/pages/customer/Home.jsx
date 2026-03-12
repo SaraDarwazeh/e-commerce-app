@@ -25,6 +25,7 @@ export default function Home() {
   const [trendingProducts, setTrendingProducts] = useState([]);
   const [saleProducts, setSaleProducts] = useState([]);
   const [saleSectionEnabled, setSaleSectionEnabled] = useState(false);
+  const [saleGradients, setSaleGradients] = useState({ start: '#111827', end: '#111827' }); // Dark fallback
   const [banners, setBanners] = useState([]);
   const [currentBannerIdx, setCurrentBannerIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,12 @@ export default function Home() {
             setSaleSectionEnabled(data.saleSectionEnabled || false);
             if (data.homepageSections && Array.isArray(data.homepageSections)) {
               setHomepageSections(data.homepageSections);
+            }
+            if (data.specialOffersGradientStart || data.specialOffersGradientEnd) {
+              setSaleGradients({
+                start: data.specialOffersGradientStart || '#111827',
+                end: data.specialOffersGradientEnd || '#111827'
+              });
             }
           }
         } catch (e) { /* ignore */ }
@@ -252,9 +259,14 @@ export default function Home() {
   const renderSale = () => {
     if (!saleSectionEnabled || saleProducts.length === 0) return null;
     return (
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8 md:p-12">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-rose-600/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <section
+        className="relative overflow-hidden rounded-[2rem] p-8 md:p-12 shadow-inner"
+        style={{
+          background: `linear-gradient(to bottom right, ${saleGradients.start}, ${saleGradients.end})`
+        }}
+      >
+        <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-10">
             <div className="p-2.5 bg-gradient-to-r from-rose-500 to-red-600 rounded-xl shadow-lg shadow-rose-500/30">

@@ -14,6 +14,7 @@ import ProductList from '../pages/customer/ProductList';
 import ProductDetails from '../pages/customer/ProductDetails';
 import Cart from '../pages/customer/Cart';
 import Favorites from '../pages/customer/Favorites';
+import PrivacyPolicy from '../pages/customer/PrivacyPolicy';
 
 // Customer Protected Pages
 import Profile from '../pages/customer/Profile';
@@ -60,6 +61,10 @@ export const router = createBrowserRouter([
       {
         path: 'product/:id',
         element: <ProductDetails />
+      },
+      {
+        path: 'privacy',
+        element: <PrivacyPolicy />
       },
       {
         path: 'cart',

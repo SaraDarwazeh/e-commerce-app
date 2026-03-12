@@ -6,6 +6,8 @@ import { signOut } from '../services/authService';
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../components/ui/LanguageSwitcher';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 export default function CustomerLayout() {
   const { pathname } = useLocation();
@@ -25,6 +27,22 @@ export default function CustomerLayout() {
 
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const favCount = favItems.length;
+
+  const [storefrontConfig, setStorefrontConfig] = useState(null);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const sfDoc = await getDoc(doc(db, 'settings', 'storefront'));
+        if (sfDoc.exists()) {
+          setStorefrontConfig(sfDoc.data());
+        }
+      } catch (e) {
+        console.error("Failed to fetch storefront config", e);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && currentUser?.uid) {
@@ -84,9 +102,19 @@ export default function CustomerLayout() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 flex flex-col" dir={i18n.dir()}>
       {/* Top Banner */}
-      <div className="bg-brand-900 text-brand-50 text-xs py-2 text-center font-medium tracking-wide">
-        {t('common.freeShipping')}
-      </div>
+      {storefrontConfig?.announcementActive !== false && (
+        <div
+          className="text-xs py-2 text-center font-medium tracking-wide transition-colors"
+          style={{
+            backgroundColor: storefrontConfig?.announcementBgColor || '#ef4444',
+            color: '#ffffff'
+          }}
+        >
+          {i18n.language === 'ar'
+            ? (storefrontConfig?.announcementTextAr || 'توصيل مجاني على جميع الطلبات فوق ₪50')
+            : (storefrontConfig?.announcementTextEn || 'Free delivery on all orders over ₪50')}
+        </div>
+      )}
 
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
@@ -249,8 +277,13 @@ export default function CustomerLayout() {
               </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center">
+          <div className="mt-12 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-gray-400">{t('common.allRightsReserved')}</p>
+            <div className="flex gap-4 text-sm text-gray-500">
+              <Link to="/privacy" className="hover:text-brand-600 transition-colors">
+                {i18n.language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

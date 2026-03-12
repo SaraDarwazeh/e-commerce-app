@@ -27,7 +27,7 @@ const persistGuestCart = (items) => {
   localStorage.setItem(GUEST_CART_KEY, JSON.stringify(items));
 };
 
-const calculateTotals = (items, coupon, shippingSettings, shippingRegion) => {
+const calculateTotals = (items, coupon, deliverySettings, deliveryRegion) => {
   const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   let discountAmount = 0;
 
@@ -43,19 +43,22 @@ const calculateTotals = (items, coupon, shippingSettings, shippingRegion) => {
     }
   }
 
-  let shipping = 0;
-  if (shippingSettings) {
-    if (subtotal >= shippingSettings.freeShippingThreshold) {
-      shipping = 0;
+  let deliveryCost = 0;
+  if (deliverySettings) {
+    if (deliverySettings.freeDeliveryEnabled) {
+      deliveryCost = 0;
+    } else if (deliverySettings.freeDeliveryThresholdEnabled && subtotal >= deliverySettings.freeDeliveryThresholdAmount) {
+      deliveryCost = 0;
     } else {
-      shipping = shippingSettings.rates?.[shippingRegion] ?? 15;
+      deliveryCost = deliveryRegion === 'Inside' ? (deliverySettings.insideCost ?? 30) : (deliverySettings.westBankCost ?? 15);
     }
   } else {
-    shipping = subtotal > 50 ? 0 : 15; // default fallback
+    // default fallback
+    deliveryCost = deliveryRegion === 'Inside' ? 30 : 15;
   }
-  const finalTotal = Math.max(0, (subtotal - discountAmount) + shipping);
+  const finalTotal = Math.max(0, (subtotal - discountAmount) + deliveryCost);
 
-  return { subtotal, discountAmount, shipping, total: finalTotal };
+  return { subtotal, discountAmount, deliveryCost, total: finalTotal };
 };
 
 const useCartStore = create((set, get) => ({
@@ -64,30 +67,30 @@ const useCartStore = create((set, get) => ({
   isLoading: false,
   error: null,
 
-  // Shipping dynamically fetched
-  shippingSettings: null,
-  shippingRegion: 'West Bank',
+  // Delivery dynamically fetched
+  deliverySettings: null,
+  deliveryRegion: 'West Bank',
 
   // Totals Cache
   totals: {
     subtotal: 0,
     discountAmount: 0,
-    shipping: 0,
+    deliveryCost: 0,
     total: 0
   },
 
   _recalculate: () => {
-    const { items, coupon, shippingSettings, shippingRegion } = get();
-    set({ totals: calculateTotals(items, coupon, shippingSettings, shippingRegion) });
+    const { items, coupon, deliverySettings, deliveryRegion } = get();
+    set({ totals: calculateTotals(items, coupon, deliverySettings, deliveryRegion) });
   },
 
-  setShippingRegion: (region) => {
-    set({ shippingRegion: region });
+  setDeliveryRegion: (region) => {
+    set({ deliveryRegion: region });
     get()._recalculate();
   },
 
-  setShippingSettings: (settings) => {
-    set({ shippingSettings: settings });
+  setDeliverySettings: (settings) => {
+    set({ deliverySettings: settings });
     get()._recalculate();
   },
 

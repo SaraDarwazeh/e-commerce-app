@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { getBanners, createBanner, updateBanner, deleteBanner } from '../../services/bannerService';
-import { Plus, Edit2, Trash2, GripVertical, Check, X, Image as ImageIcon } from 'lucide-react';
+import { uploadImage, deleteImage } from '../../services/uploadService';
+import { Plus, Edit2, Trash2, GripVertical, Check, X, Image as ImageIcon, Upload } from 'lucide-react';
 import useUIStore from '../../store/uiStore';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +14,8 @@ export default function AdminBanners() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -20,6 +23,7 @@ export default function AdminBanners() {
     ctaText: 'Shop Now',
     ctaLink: '/products',
     image: '',
+    imagePath: '',
     isActive: true,
     order: 0
   });
@@ -49,6 +53,7 @@ export default function AdminBanners() {
           ctaText: banner.ctaText,
           ctaLink: banner.ctaLink,
           image: banner.image,
+          imagePath: banner.imagePath || '',
           isActive: true,
           order: banner.order
         });
@@ -61,6 +66,7 @@ export default function AdminBanners() {
           ctaText: banner.ctaText || 'Shop Now',
           ctaLink: banner.ctaLink || '/products',
           image: banner.image || '',
+          imagePath: banner.imagePath || '',
           isActive: banner.isActive !== false,
           order: banner.order || 0
         });
@@ -73,6 +79,7 @@ export default function AdminBanners() {
         ctaText: 'Shop Now',
         ctaLink: '/products',
         image: '',
+        imagePath: '',
         isActive: true,
         order: banners.length + 1
       });
@@ -83,6 +90,50 @@ export default function AdminBanners() {
   const closeForm = () => {
     setIsModalOpen(false);
     setEditingBanner(null);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      addToast(t('admin.invalidImageType', 'Please upload a valid image file.'), 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      addToast(t('admin.imageTooLarge', 'Image must be less than 5MB.'), 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const { url, path } = await uploadImage(file, 'banners');
+
+      // If updating an existing banner, delete the old image if it's stored in Firebase (has imagePath)
+      if (formData.imagePath && formData.imagePath !== path) {
+        await deleteImage(formData.imagePath).catch(() => { });
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        image: url,
+        imagePath: path
+      }));
+      addToast(t('admin.uploadSuccess', 'Image uploaded successfully'), 'success');
+    } catch (error) {
+      addToast(error.message || t('admin.uploadFailed', 'Failed to upload image'), 'error');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    // We only actively delete from Firebase if it's already saved an imagePath in this session
+    // AND it's not the original imagePath from the DB (to prevent accidental loss before Save is clicked)
+    // For simplicity and safety, just clear the form state and let the Submit or next Upload handle cleanup.
+    setFormData(prev => ({ ...prev, image: '', imagePath: '' }));
   };
 
   const handleSubmit = async (e) => {
@@ -117,6 +168,9 @@ export default function AdminBanners() {
       confirmText: t('admin.delete'),
       onConfirm: async () => {
         try {
+          if (banner.imagePath) {
+            await deleteImage(banner.imagePath);
+          }
           await deleteBanner(banner.id);
           addToast(t('admin.bannerDeleted'), "success");
           fetchBanners();
@@ -194,7 +248,7 @@ export default function AdminBanners() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-end gap-2 ml-auto">
                   <button
                     onClick={() => toggleActive(banner)}
                     disabled={banner.id.startsWith('fallback')}
@@ -242,24 +296,62 @@ export default function AdminBanners() {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">{t('admin.imageUrl')} <span className="text-red-500">*</span></label>
-                  <input
-                    type="url"
-                    required
-                    value={formData.image}
-                    onChange={e => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="https://images.unsplash.com/photo-..."
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand-500 outline-none"
-                  />
-                  <p className="text-xs text-gray-500">{t('admin.imageUrlHint')}</p>
-                </div>
+                <div className="space-y-4 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">{t('admin.bannerImage')} <span className="text-red-500">*</span></label>
 
-                {formData.image && (
-                  <div className="md:col-span-2 h-40 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
-                  </div>
-                )}
+                  {formData.image ? (
+                    <div className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm aspect-[21/9] bg-gray-50 flex items-center justify-center max-h-64">
+                      <img
+                        src={formData.image}
+                        alt="Preview"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-white text-gray-900 rounded-lg p-2 hover:bg-gray-100 font-medium text-sm flex items-center gap-2"
+                        >
+                          <Upload size={16} /> {t('admin.changeImage', 'Change')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="bg-red-500 text-white rounded-lg p-2 hover:bg-red-600 font-medium text-sm flex items-center gap-2"
+                        >
+                          <Trash2 size={16} /> {t('admin.remove', 'Remove')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${isUploading ? 'border-brand-300 bg-brand-50' : 'border-gray-300 hover:border-brand-500 hover:bg-gray-50'}`}
+                    >
+                      {isUploading ? (
+                        <div className="flex flex-col items-center text-brand-600">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mb-2"></div>
+                          <p className="text-sm font-medium">{t('admin.uploading', 'Uploading...')}</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center text-gray-500">
+                          <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                          <p className="text-sm font-medium mb-1">{t('admin.clickToUpload', 'Click to upload High-Res Banner')}</p>
+                          <p className="text-xs text-gray-400">PNG, JPG, WEBP up to 5MB (1600x600 recommended)</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  {!formData.image && <input type="hidden" required value={formData.image} />}
+                </div>
 
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">{t('admin.displayTitle')} <span className="text-red-500">*</span></label>

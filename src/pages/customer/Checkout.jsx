@@ -5,7 +5,7 @@ import useCartStore from '../../store/cartStore';
 import useUIStore from '../../store/uiStore';
 import { updateUserProfile } from '../../services/authService';
 import { createOrder } from '../../services/orderService';
-import { getShippingSettings } from '../../services/shippingService';
+import { getDeliverySettings } from '../../services/deliveryService';
 import BackButton from '../../components/ui/BackButton';
 import { Banknote, CreditCard } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,7 @@ export default function Checkout() {
   const { t, i18n } = useTranslation();
   const { userProfile, currentUser, updateProfileData } = useAuthStore();
   const navigate = useNavigate();
-  const { items, totals, coupon, clearCart, setShippingRegion, setShippingSettings } = useCartStore();
+  const { items, totals, coupon, clearCart, setDeliveryRegion, setDeliverySettings } = useCartStore();
   const { addToast } = useUIStore();
 
   const [formData, setFormData] = useState({
@@ -37,18 +37,18 @@ export default function Checkout() {
   }, [items, navigate]);
 
   useEffect(() => {
-    // Fetch shipping settings once on mount
+    // Fetch delivery settings once on mount
     const fetchSettings = async () => {
-      const settings = await getShippingSettings();
-      setShippingSettings(settings);
+      const settings = await getDeliverySettings();
+      setDeliverySettings(settings);
     };
     fetchSettings();
-  }, [setShippingSettings]);
+  }, [setDeliverySettings]);
 
   useEffect(() => {
     // Sync store region any time formData.region changes
-    setShippingRegion(formData.region);
-  }, [formData.region, setShippingRegion]);
+    setDeliveryRegion(formData.region);
+  }, [formData.region, setDeliveryRegion]);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
@@ -78,7 +78,7 @@ export default function Checkout() {
         customerName: formData.fullName,
         customerEmail: userProfile?.email || currentUser?.email || 'Guest',
         customerPhone: formData.phone,
-        shippingRegion: formData.region,
+        deliveryRegion: formData.region,
         address: formData.address,
         notes: formData.notes,
         paymentMethod: paymentMethod,
@@ -93,12 +93,13 @@ export default function Checkout() {
         })),
         totals: {
           subtotal: Number(totals.subtotal || 0),
-          shipping: Number(totals.shipping || 0),
+          deliveryCost: Number(totals.deliveryCost || 0),
           discountAmount: Number(totals.discountAmount || 0),
           total: Number(totals.total || 0)
         },
         subtotal: Number(totals.subtotal || 0),
-        shippingCost: Number(totals.shipping || 0),
+        deliveryCost: Number(totals.deliveryCost || 0),
+        freeDeliveryApplied: totals.deliveryCost === 0,
         total: Number(totals.total || 0),
         couponCode: coupon?.code || null
       };
@@ -247,7 +248,7 @@ export default function Checkout() {
 
               <div className="flex justify-between">
                 <span className="text-gray-600">{t('checkout.shipping')}</span>
-                <span className="font-medium">{totals.shipping === 0 ? t('checkout.free') : `₪${totals.shipping.toFixed(2)}`}</span>
+                <span className="font-medium">{totals.deliveryCost === 0 ? t('checkout.free') : `₪${totals.deliveryCost.toFixed(2)}`}</span>
               </div>
             </div>
             <div className="flex justify-between font-bold text-lg mb-6">

@@ -1,57 +1,74 @@
 import { useState, useEffect } from 'react';
-import { getShippingSettings, updateShippingSettings } from '../../services/shippingService';
+import { getDeliverySettings, updateDeliverySettings } from '../../services/deliveryService';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { Save, AlertCircle, ChevronUp, ChevronDown, Eye, EyeOff, GripVertical } from 'lucide-react';
 import useUIStore from '../../store/uiStore';
 import { useTranslation } from 'react-i18next';
 
-export default function ShippingSettings() {
+export default function StoreSettings() {
   const { t, i18n } = useTranslation();
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
-    freeShippingThreshold: 50,
-    rates: {
-      'West Bank': 15,
-      'Inside': 30
-    }
+  // Delivery config
+  const [deliveryData, setDeliveryData] = useState({
+    westBankCost: 15,
+    insideCost: 30,
+    freeDeliveryEnabled: false,
+    freeDeliveryThresholdEnabled: true,
+    freeDeliveryThresholdAmount: 50
   });
-  const [saleSectionEnabled, setSaleSectionEnabled] = useState(false);
 
+  // Storefront config
   const defaultSections = [
     { id: 'hero', visible: true },
     { id: 'categories', visible: true },
     { id: 'sale', visible: true },
     { id: 'trending', visible: true },
-    { id: 'editorsPicks', visible: true },
+    { id: 'editorsPicks', visible: true }
   ];
-  const [homepageSections, setHomepageSections] = useState(defaultSections);
+
+  const [storefrontData, setStorefrontData] = useState({
+    saleSectionEnabled: false,
+    homepageSections: defaultSections,
+    announcementActive: true,
+    announcementTextEn: 'Free delivery on all orders over ₪50',
+    announcementTextAr: 'توصيل مجاني على جميع الطلبات فوق ₪50',
+    announcementBgColor: '#ef4444',
+    specialOffersGradientStart: '#fdfbfb',
+    specialOffersGradientEnd: '#ebedee'
+  });
 
   useEffect(() => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        const settings = await getShippingSettings();
-        if (settings) {
-          setFormData({
-            freeShippingThreshold: settings.freeShippingThreshold || 0,
-            rates: {
-              'West Bank': settings.rates?.['West Bank'] ?? 15,
-              'Inside': settings.rates?.['Inside'] ?? 30
-            }
+        const dSettings = await getDeliverySettings();
+        if (dSettings) {
+          setDeliveryData({
+            westBankCost: dSettings.westBankCost ?? 15,
+            insideCost: dSettings.insideCost ?? 30,
+            freeDeliveryEnabled: dSettings.freeDeliveryEnabled ?? false,
+            freeDeliveryThresholdEnabled: dSettings.freeDeliveryThresholdEnabled ?? true,
+            freeDeliveryThresholdAmount: dSettings.freeDeliveryThresholdAmount ?? 50
           });
         }
-        // Fetch storefront settings (sale toggle + sections)
-        const saleDoc = await getDoc(doc(db, 'settings', 'storefront'));
-        if (saleDoc.exists()) {
-          const data = saleDoc.data();
-          setSaleSectionEnabled(data.saleSectionEnabled || false);
-          if (data.homepageSections && Array.isArray(data.homepageSections)) {
-            setHomepageSections(data.homepageSections);
-          }
+
+        const sfDoc = await getDoc(doc(db, 'settings', 'storefront'));
+        if (sfDoc.exists()) {
+          const data = sfDoc.data();
+          setStorefrontData({
+            saleSectionEnabled: data.saleSectionEnabled ?? false,
+            homepageSections: Array.isArray(data.homepageSections) ? data.homepageSections : defaultSections,
+            announcementActive: data.announcementActive ?? true,
+            announcementTextEn: data.announcementTextEn ?? 'Free delivery on all orders over ₪50',
+            announcementTextAr: data.announcementTextAr ?? 'توصيل مجاني على جميع الطلبات فوق ₪50',
+            announcementBgColor: data.announcementBgColor ?? '#ef4444',
+            specialOffersGradientStart: data.specialOffersGradientStart ?? '#fdfbfb',
+            specialOffersGradientEnd: data.specialOffersGradientEnd ?? '#ebedee'
+          });
         }
       } catch (error) {
         addToast(t('admin.loading'), "error");
@@ -60,28 +77,14 @@ export default function ShippingSettings() {
       }
     };
     fetchSettings();
-  }, [addToast]);
-
-  const handleRateChange = (region, value) => {
-    setFormData(prev => ({
-      ...prev,
-      rates: {
-        ...prev.rates,
-        [region]: Number(value)
-      }
-    }));
-  };
+  }, [addToast, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateShippingSettings(formData);
-      // Save storefront settings (sale toggle + section ordering)
-      await setDoc(doc(db, 'settings', 'storefront'), {
-        saleSectionEnabled,
-        homepageSections,
-      }, { merge: true });
+      await updateDeliverySettings(deliveryData);
+      await setDoc(doc(db, 'settings', 'storefront'), storefrontData, { merge: true });
       addToast(t('admin.saveSettings'), "success");
     } catch (error) {
       addToast(error.message, "error");
@@ -94,19 +97,23 @@ export default function ShippingSettings() {
     return <div className="p-8 text-center text-gray-500">{t('admin.loading')}</div>;
   }
 
+  const rtl = i18n.dir() === 'rtl';
+
   return (
-    <div className={`max-w-2xl ${i18n.dir() === 'rtl' ? 'rtl' : ''}`}>
+    <div className={`max-w-3xl ${rtl ? 'rtl' : ''}`}>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t('admin.shippingSettings') || 'Shipping Settings'}</h1>
-        <p className="text-sm text-gray-500 mt-1">{t('admin.shippingSettingsDesc') || 'Configure delivery costs based on regions and free shipping thresholds.'}</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('admin.storeSettings') || 'Store Settings'}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('admin.storeSettingsDesc') || 'Configure delivery costs, announcements, and storefront features.'}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-12">
+        {/* DELIVERY SETTINGS */}
         <div className="p-6 space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 border-b pb-2">{t('admin.deliverySettings') || 'Delivery Settings'}</h2>
 
-          <div className={`bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm text-blue-800 ${i18n.dir() === 'rtl' ? 'rtl:text-right' : ''}`}>
+          <div className={`bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm text-blue-800 ${rtl ? 'rtl:text-right' : ''}`}>
             <AlertCircle className="shrink-0 mt-0.5" size={18} />
-            <p>{t('admin.shippingCostsAutoDesc') || 'Customer shipping costs are calculated automatically at checkout according to their selected region.'}</p>
+            <p>{t('admin.deliveryCostsAutoDesc') || 'Customer delivery costs are calculated automatically at checkout according to their selected region.'}</p>
           </div>
 
           <div>
@@ -115,73 +122,113 @@ export default function ShippingSettings() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.westBankRate') || 'West Bank Rate'}</label>
                 <div className="relative">
-                  <span className={`absolute ${i18n.dir() === 'rtl' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-500`}>₪</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={formData.rates['West Bank']}
-                    onChange={e => handleRateChange('West Bank', e.target.value)}
-                    className={`w-full border border-gray-300 rounded-lg ${i18n.dir() === 'rtl' ? 'pr-7 pl-3 text-right' : 'pl-7 pr-3'} py-2 text-gray-900`}
-                  />
+                  <span className={`absolute ${rtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-500`}>₪</span>
+                  <input type="number" min="0" step="0.01" required value={deliveryData.westBankCost} onChange={e => setDeliveryData({ ...deliveryData, westBankCost: Number(e.target.value) })} className={`w-full border border-gray-300 rounded-lg ${rtl ? 'pr-7 pl-3 text-right' : 'pl-7 pr-3'} py-2`} />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.insideRate') || 'Inside (48) Rate'}</label>
                 <div className="relative">
-                  <span className={`absolute ${i18n.dir() === 'rtl' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-500`}>₪</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={formData.rates['Inside']}
-                    onChange={e => handleRateChange('Inside', e.target.value)}
-                    className={`w-full border border-gray-300 rounded-lg ${i18n.dir() === 'rtl' ? 'pr-7 pl-3 text-right' : 'pl-7 pr-3'} py-2 text-gray-900`}
-                  />
+                  <span className={`absolute ${rtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-500`}>₪</span>
+                  <input type="number" min="0" step="0.01" required value={deliveryData.insideCost} onChange={e => setDeliveryData({ ...deliveryData, insideCost: Number(e.target.value) })} className={`w-full border border-gray-300 rounded-lg ${rtl ? 'pr-7 pl-3 text-right' : 'pl-7 pr-3'} py-2`} />
                 </div>
               </div>
             </div>
           </div>
 
           <div className="pt-6 border-t border-gray-100">
-            <h3 className="font-bold text-gray-900 mb-4">{t('admin.freeShippingCondition') || 'Free Shipping Condition'}</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.minCartSubtotal') || 'Minimum Cart Subtotal'} (₪)</label>
-              <p className="text-xs text-gray-500 mb-2">{t('admin.freeShippingDesc') || 'Orders exceeding this amount will receive free shipping automatically. Set to a very high number (e.g., 99999) to disable free shipping.'}</p>
-              <div className="relative max-w-xs">
-                <span className={`absolute ${i18n.dir() === 'rtl' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-500`}>₪</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  value={formData.freeShippingThreshold}
-                  onChange={e => setFormData({ ...formData, freeShippingThreshold: Number(e.target.value) })}
-                  className={`w-full border border-gray-300 rounded-lg ${i18n.dir() === 'rtl' ? 'pr-7 pl-3 text-right' : 'pl-7 pr-3'} py-2 text-gray-900`}
-                />
-              </div>
+            <h3 className="font-bold text-gray-900 mb-4">{t('admin.freeDeliveryConfiguration') || 'Free Delivery Configuration'}</h3>
+
+            <label className="flex items-center gap-3 cursor-pointer mb-4">
+              <input type="checkbox" checked={deliveryData.freeDeliveryEnabled} onChange={e => setDeliveryData({ ...deliveryData, freeDeliveryEnabled: e.target.checked })} className="rounded text-brand-600 focus:ring-brand-500 w-5 h-5 cursor-pointer" />
+              <span className="text-sm font-medium text-gray-900">{t('admin.freeDeliveryGlobal') || 'Enable Free Delivery Globally (All Orders)'}</span>
+            </label>
+
+            <div className={`pl-8 ${deliveryData.freeDeliveryEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+              <label className="flex items-center gap-3 cursor-pointer mb-2">
+                <input type="checkbox" checked={deliveryData.freeDeliveryThresholdEnabled} onChange={e => setDeliveryData({ ...deliveryData, freeDeliveryThresholdEnabled: e.target.checked })} className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4 cursor-pointer" />
+                <span className="text-sm font-medium text-gray-700">{t('admin.freeDeliveryThresholdEnable') || 'Enable Free Delivery above a certain amount'}</span>
+              </label>
+
+              {deliveryData.freeDeliveryThresholdEnabled && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.minCartSubtotal') || 'Minimum Cart Subtotal'} (₪)</label>
+                  <div className="relative max-w-xs">
+                    <span className={`absolute ${rtl ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-500`}>₪</span>
+                    <input type="number" min="0" step="0.01" value={deliveryData.freeDeliveryThresholdAmount} onChange={e => setDeliveryData({ ...deliveryData, freeDeliveryThresholdAmount: Number(e.target.value) })} className={`w-full border border-gray-300 rounded-lg ${rtl ? 'pr-7 pl-3 text-right' : 'pl-7 pr-3'} py-2 text-gray-900`} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Sale Section Toggle */}
-          <div className="pt-6 border-t border-gray-100">
+        {/* ANNOUNCEMENT BAR SETTINGS */}
+        <div className="p-6 space-y-6 border-t-[8px] border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 border-b pb-2">{t('admin.announcementBar') || 'Announcement Bar Config'}</h2>
+
+          <label className="flex items-center gap-3 cursor-pointer mb-4">
+            <input type="checkbox" checked={storefrontData.announcementActive} onChange={e => setStorefrontData({ ...storefrontData, announcementActive: e.target.checked })} className="rounded text-brand-600 focus:ring-brand-500 w-5 h-5 cursor-pointer" />
+            <span className="text-sm font-medium text-gray-700">{t('admin.announcementEnabled') || 'Enable Announcement Bar'}</span>
+          </label>
+
+          {storefrontData.announcementActive && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.announcementTextEn') || 'Announcement Text (English)'}</label>
+                <input type="text" value={storefrontData.announcementTextEn} onChange={e => setStorefrontData({ ...storefrontData, announcementTextEn: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Ex: Free delivery on orders over ₪50" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.announcementTextAr') || 'Announcement Text (Arabic)'}</label>
+                <input type="text" value={storefrontData.announcementTextAr} onChange={e => setStorefrontData({ ...storefrontData, announcementTextAr: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right dir-rtl" placeholder="مثال: توصيل مجاني على الطلبات..." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.announcementBgColor') || 'Background Color (Hex)'}</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={storefrontData.announcementBgColor} onChange={e => setStorefrontData({ ...storefrontData, announcementBgColor: e.target.value })} className="w-10 h-10 p-1 rounded cursor-pointer border-gray-300" />
+                  <input type="text" value={storefrontData.announcementBgColor} onChange={e => setStorefrontData({ ...storefrontData, announcementBgColor: e.target.value })} className="flex-1 border border-gray-300 rounded-lg px-3 py-2" placeholder="#ef4444" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* STOREFRONT & HOME SECTIONS */}
+        <div className="p-6 space-y-6 border-t-[8px] border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 border-b pb-2">{t('admin.homepageSettings') || 'Storefront Layout'}</h2>
+
+          <div className="mb-4">
             <h3 className="font-bold text-gray-900 mb-2">{t('admin.saleSection')}</h3>
-            <p className="text-xs text-gray-500 mb-4">{t('admin.saleSectionDesc')}</p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={saleSectionEnabled} onChange={e => setSaleSectionEnabled(e.target.checked)} className="rounded text-brand-600 focus:ring-brand-500 w-5 h-5 cursor-pointer" />
+            <label className="flex items-center gap-3 cursor-pointer mb-4">
+              <input type="checkbox" checked={storefrontData.saleSectionEnabled} onChange={e => setStorefrontData({ ...storefrontData, saleSectionEnabled: e.target.checked })} className="rounded text-brand-600 focus:ring-brand-500 w-5 h-5 cursor-pointer" />
               <span className="text-sm font-medium text-gray-700">{t('admin.saleSectionEnabled')}</span>
             </label>
+
+            {storefrontData.saleSectionEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.specialOffersGradientStart') || 'Gradient Start Color'}</label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={storefrontData.specialOffersGradientStart} onChange={e => setStorefrontData({ ...storefrontData, specialOffersGradientStart: e.target.value })} className="w-10 h-10 p-1 rounded cursor-pointer" />
+                    <input type="text" value={storefrontData.specialOffersGradientStart} onChange={e => setStorefrontData({ ...storefrontData, specialOffersGradientStart: e.target.value })} className="flex-1 border border-gray-300 rounded-lg px-3 py-2" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.specialOffersGradientEnd') || 'Gradient End Color'}</label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={storefrontData.specialOffersGradientEnd} onChange={e => setStorefrontData({ ...storefrontData, specialOffersGradientEnd: e.target.value })} className="w-10 h-10 p-1 rounded cursor-pointer" />
+                    <input type="text" value={storefrontData.specialOffersGradientEnd} onChange={e => setStorefrontData({ ...storefrontData, specialOffersGradientEnd: e.target.value })} className="flex-1 border border-gray-300 rounded-lg px-3 py-2" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Homepage Sections Ordering */}
           <div className="pt-6 border-t border-gray-100">
             <h3 className="font-bold text-gray-900 mb-2">{t('admin.homepageSections')}</h3>
             <p className="text-xs text-gray-500 mb-4">{t('admin.homepageSectionsDesc')}</p>
             <div className="space-y-2">
-              {homepageSections.map((section, idx) => {
+              {storefrontData.homepageSections.map((section, idx) => {
                 const sectionLabelMap = {
                   hero: t('admin.sectionHero'),
                   categories: t('admin.sectionCategories'),
@@ -197,9 +244,9 @@ export default function ShippingSettings() {
                       type="button"
                       onClick={() => {
                         if (idx === 0) return;
-                        const arr = [...homepageSections];
+                        const arr = [...storefrontData.homepageSections];
                         [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
-                        setHomepageSections(arr);
+                        setStorefrontData({ ...storefrontData, homepageSections: arr });
                       }}
                       disabled={idx === 0}
                       className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -210,12 +257,12 @@ export default function ShippingSettings() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (idx === homepageSections.length - 1) return;
-                        const arr = [...homepageSections];
+                        if (idx === storefrontData.homepageSections.length - 1) return;
+                        const arr = [...storefrontData.homepageSections];
                         [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
-                        setHomepageSections(arr);
+                        setStorefrontData({ ...storefrontData, homepageSections: arr });
                       }}
-                      disabled={idx === homepageSections.length - 1}
+                      disabled={idx === storefrontData.homepageSections.length - 1}
                       className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       title={t('admin.moveDown')}
                     >
@@ -224,7 +271,8 @@ export default function ShippingSettings() {
                     <button
                       type="button"
                       onClick={() => {
-                        setHomepageSections(prev => prev.map(s => s.id === section.id ? { ...s, visible: !s.visible } : s));
+                        const arr = storefrontData.homepageSections.map(s => s.id === section.id ? { ...s, visible: !s.visible } : s);
+                        setStorefrontData({ ...storefrontData, homepageSections: arr });
                       }}
                       className={`p-1.5 rounded-lg transition-colors ${section.visible ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}
                     >
@@ -235,7 +283,6 @@ export default function ShippingSettings() {
               })}
             </div>
           </div>
-
         </div>
 
         <div className="bg-gray-50 border-t border-gray-200 p-4 flex justify-end">
