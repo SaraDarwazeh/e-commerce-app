@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #f8f9fa;
+  --color-brand-100: #f1f3f5;
+  --color-brand-500: #343a40;
+  --color-brand-600: #212529;
+  --color-brand-700: #1a1e21;
+  --color-brand-900: #000000;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-cairo: 'Cairo', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  body.font-arabic {
+    font-family: 'Cairo', sans-serif;
+  }
+}
+
+/* ===== Page Fade-In Animation ===== */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-fade-in {
+  animation: pageFadeIn 0.3s ease-out both;
+}
+
+/* ===== Button Micro-Interactions ===== */
+.btn-interact {
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+.btn-interact:hover {
+  transform: scale(1.03);
+}
+
+.btn-interact:active {
+  transform: scale(0.97);
+}
+
+/* ===== Product Card Hover System ===== */
+.product-card {
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
+  will-change: transform, box-shadow;
+}
+
+.product-card:hover {
+  box-shadow: 0 12px 40px -8px rgb(0 0 0 / 0.12), 0 4px 12px -4px rgb(0 0 0 / 0.06);
+  transform: translateY(-4px);
+}
+
+.product-card .card-image {
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.product-card:hover .card-image {
+  transform: scale(1.06);
+}
+
+/* Action overlay that fades in on hover */
+.product-card .card-actions {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+
+.product-card:hover .card-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ===== Image Zoom on Detail Page ===== */
+.detail-image-wrap {
+  overflow: hidden;
+}
+
+.detail-image-wrap img {
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.detail-image-wrap:hover img {
+  transform: scale(1.08);
+}
+
+/* ===== Quick View Modal Transitions ===== */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-overlay {
+  animation: modalFadeIn 0.25s ease-out;
+}
+
+.modal-content {
+  animation: modalSlideUp 0.3s ease-out;
+}
+
+/* ===== Badge Pulse for Sale Items ===== */
+@keyframes badgePulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.badge-pulse {
+  animation: badgePulse 2s ease-in-out infinite;
+}
