@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, getDocs, updateDoc, serverTimestamp, orderBy, query } from 'firebase/firestore';
+import { collection, doc, addDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 const COLLECTION_NAME = 'orders';
@@ -114,5 +114,15 @@ export const cancelOrder = async (orderId) => {
   } catch (error) {
     console.error("Error cancelling order:", error);
     throw new Error("Failed to cancel order");
+  }
+};
+
+export const deleteOrder = async (orderId) => {
+  try {
+    const orderRef = doc(db, COLLECTION_NAME, orderId);
+    await deleteDoc(orderRef);
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    throw new Error("Failed to delete order");
   }
 };

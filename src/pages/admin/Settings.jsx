@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getDeliverySettings, updateDeliverySettings } from '../../services/deliveryService';
+import { uploadImage } from '../../services/uploadService';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { Save, AlertCircle, ChevronUp, ChevronDown, Eye, EyeOff, GripVertical } from 'lucide-react';
@@ -11,6 +12,7 @@ export default function StoreSettings() {
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isUploadingHero, setIsUploadingHero] = useState(false);
 
   // Delivery config
   const [deliveryData, setDeliveryData] = useState({
@@ -24,6 +26,7 @@ export default function StoreSettings() {
   // Storefront config
   const defaultSections = [
     { id: 'hero', visible: true },
+    { id: 'banners', visible: true },
     { id: 'categories', visible: true },
     { id: 'sale', visible: true },
     { id: 'trending', visible: true },
@@ -38,7 +41,16 @@ export default function StoreSettings() {
     announcementTextAr: 'توصيل مجاني على جميع الطلبات فوق ₪50',
     announcementBgColor: '#ef4444',
     specialOffersGradientStart: '#fdfbfb',
-    specialOffersGradientEnd: '#ebedee'
+    specialOffersGradientEnd: '#ebedee',
+    whatsappEnabled: true,
+    whatsappNumber: '972501234567',
+    socialLinks: {
+      instagram: '',
+      facebook: '',
+      tiktok: '',
+      twitter: '',
+      youtube: ''
+    }
   });
 
   useEffect(() => {
@@ -59,15 +71,32 @@ export default function StoreSettings() {
         const sfDoc = await getDoc(doc(db, 'settings', 'storefront'));
         if (sfDoc.exists()) {
           const data = sfDoc.data();
+          
+          let sections = Array.isArray(data.homepageSections) ? [...data.homepageSections] : defaultSections;
+          if (!sections.some(s => s.id === 'banners')) {
+            const heroIndex = sections.findIndex(s => s.id === 'hero');
+            const insertIndex = heroIndex !== -1 ? heroIndex + 1 : 1;
+            sections.splice(insertIndex, 0, { id: 'banners', visible: true });
+          }
+
           setStorefrontData({
             saleSectionEnabled: data.saleSectionEnabled ?? false,
-            homepageSections: Array.isArray(data.homepageSections) ? data.homepageSections : defaultSections,
+            homepageSections: sections,
             announcementActive: data.announcementActive ?? true,
             announcementTextEn: data.announcementTextEn ?? 'Free delivery on all orders over ₪50',
             announcementTextAr: data.announcementTextAr ?? 'توصيل مجاني على جميع الطلبات فوق ₪50',
             announcementBgColor: data.announcementBgColor ?? '#ef4444',
             specialOffersGradientStart: data.specialOffersGradientStart ?? '#fdfbfb',
-            specialOffersGradientEnd: data.specialOffersGradientEnd ?? '#ebedee'
+            specialOffersGradientEnd: data.specialOffersGradientEnd ?? '#ebedee',
+            whatsappEnabled: data.whatsappEnabled ?? true,
+            whatsappNumber: data.whatsappNumber ?? '972501234567',
+            socialLinks: {
+              instagram: data.socialLinks?.instagram || '',
+              facebook: data.socialLinks?.facebook || '',
+              tiktok: data.socialLinks?.tiktok || '',
+              twitter: data.socialLinks?.twitter || '',
+              youtube: data.socialLinks?.youtube || '',
+            }
           });
         }
       } catch (error) {
@@ -230,11 +259,12 @@ export default function StoreSettings() {
             <div className="space-y-2">
               {storefrontData.homepageSections.map((section, idx) => {
                 const sectionLabelMap = {
-                  hero: t('admin.sectionHero'),
-                  categories: t('admin.sectionCategories'),
-                  sale: t('admin.sectionSale'),
-                  trending: t('admin.sectionTrending'),
-                  editorsPicks: t('admin.sectionEditorsPicks'),
+                  hero: t('admin.sectionHero') || 'Hero',
+                  banners: t('admin.sectionBanners') || 'Banners',
+                  categories: t('admin.sectionCategories') || 'Categories',
+                  sale: t('admin.sectionSale') || 'Sale',
+                  trending: t('admin.sectionTrending') || 'Trending',
+                  editorsPicks: t('admin.sectionEditorsPicks') || 'Editors Picks',
                 };
                 return (
                   <div key={section.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${section.visible ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100 opacity-60'}`}>
@@ -281,6 +311,56 @@ export default function StoreSettings() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+
+        {/* WHATSAPP CONFIG */}
+        <div className="p-6 space-y-6 border-t-[8px] border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 border-b pb-2">{t('admin.whatsappSettings') || 'WhatsApp Widget Settings'}</h2>
+
+          <label className="flex items-center gap-3 cursor-pointer mb-4">
+            <input type="checkbox" checked={storefrontData.whatsappEnabled} onChange={e => setStorefrontData({ ...storefrontData, whatsappEnabled: e.target.checked })} className="rounded text-brand-600 focus:ring-brand-500 w-5 h-5 cursor-pointer" />
+            <span className="text-sm font-medium text-gray-700">{t('admin.whatsappEnabled') || 'Enable Global WhatsApp Widget'}</span>
+          </label>
+
+          {storefrontData.whatsappEnabled && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.whatsappNumber') || 'WhatsApp Phone Number'}</label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm">+</span>
+                <input type="text" value={storefrontData.whatsappNumber} onChange={e => setStorefrontData({ ...storefrontData, whatsappNumber: e.target.value })} className="flex-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 972501234567" dir="ltr" />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{t('admin.whatsappNumberHint') || 'Input the country code and number without spaces or plus signs (ex: 972...).'}</p>
+            </div>
+          )}
+        </div>
+
+        {/* SOCIAL MEDIA CONFIG */}
+        <div className="p-6 space-y-6 border-t-[8px] border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 border-b pb-2">{t('admin.socialMediaSettings') || 'Social Media Footprint'}</h2>
+          <p className="text-sm text-gray-500 mb-4">{t('admin.socialMediaHint') || 'Link your primary social accounts. Empty fields will automatically hide from the Customer Frontend footer.'}</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Instagram URL</label>
+              <input type="url" value={storefrontData.socialLinks.instagram} onChange={e => setStorefrontData({ ...storefrontData, socialLinks: { ...storefrontData.socialLinks, instagram: e.target.value } })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://instagram.com/goldbag" dir="ltr" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Facebook URL</label>
+              <input type="url" value={storefrontData.socialLinks.facebook} onChange={e => setStorefrontData({ ...storefrontData, socialLinks: { ...storefrontData.socialLinks, facebook: e.target.value } })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://facebook.com/goldbag" dir="ltr" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">TikTok URL</label>
+              <input type="url" value={storefrontData.socialLinks.tiktok} onChange={e => setStorefrontData({ ...storefrontData, socialLinks: { ...storefrontData.socialLinks, tiktok: e.target.value } })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://tiktok.com/@goldbag" dir="ltr" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Twitter/X URL</label>
+              <input type="url" value={storefrontData.socialLinks.twitter} onChange={e => setStorefrontData({ ...storefrontData, socialLinks: { ...storefrontData.socialLinks, twitter: e.target.value } })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://twitter.com/goldbag" dir="ltr" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">YouTube URL</label>
+              <input type="url" value={storefrontData.socialLinks.youtube} onChange={e => setStorefrontData({ ...storefrontData, socialLinks: { ...storefrontData.socialLinks, youtube: e.target.value } })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://youtube.com/@goldbag" dir="ltr" />
             </div>
           </div>
         </div>

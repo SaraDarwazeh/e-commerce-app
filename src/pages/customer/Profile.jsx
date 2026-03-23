@@ -5,6 +5,7 @@ import { updateUserProfile } from '../../services/authService';
 import useUIStore from '../../store/uiStore';
 import BackButton from '../../components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
+import { sanitizeInput } from '../../utils/validation';
 
 export default function Profile() {
   const { t } = useTranslation();
@@ -38,8 +39,15 @@ export default function Profile() {
     if (!currentUser?.uid) return;
     setIsSaving(true);
     try {
-      await updateUserProfile(currentUser.uid, formData);
-      updateProfileData(formData);
+      const sanitizedData = {
+        fullName: sanitizeInput(formData.fullName),
+        phone: sanitizeInput(formData.phone),
+        region: sanitizeInput(formData.region),
+        address: sanitizeInput(formData.address),
+        notes: sanitizeInput(formData.notes)
+      };
+      await updateUserProfile(currentUser.uid, sanitizedData);
+      updateProfileData(sanitizedData);
       setIsEditing(false);
       addToast(t('profile.updateSuccess'), "success");
     } catch (err) {

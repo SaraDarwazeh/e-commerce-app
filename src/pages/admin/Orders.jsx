@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getOrders, updateOrderStatus, updatePaymentStatus } from '../../services/orderService';
+import { getOrders, updateOrderStatus, updatePaymentStatus, deleteOrder } from '../../services/orderService';
 import useUIStore from '../../store/uiStore';
-import { ChevronLeft, Package, Clock, Truck, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { ChevronLeft, Package, Clock, Truck, CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getTranslatedStatus, getTranslatedPaymentStatus } from '../../utils/statusHelpers';
 
@@ -36,6 +36,26 @@ export default function AdminOrders() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const handleDeleteOrder = (orderId) => {
+    showConfirm({
+      title: t('admin.deleteOrder') || 'Delete Order',
+      message: t('admin.deleteOrderConfirm') || 'Are you sure you want to permanently delete this order?',
+      confirmText: t('admin.delete') || 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteOrder(orderId);
+          addToast(t('admin.orderDeleted') || 'Order deleted successfully', 'success');
+          setOrders(prev => prev.filter(o => o.id !== orderId));
+          if (selectedOrder && selectedOrder.id === orderId) {
+            setSelectedOrder(null);
+          }
+        } catch (err) {
+          addToast(err.message, 'error');
+        }
+      }
+    });
+  };
 
   const handleStatusChange = (orderId, currentStatus) => {
     const targetStatus = currentStatus === 'Processing' ? 'Shipped' :
@@ -355,6 +375,13 @@ export default function AdminOrders() {
                             className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
                           >
                             <Eye size={16} /> <span className="hidden md:inline">{t('admin.viewDetails')}</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order.id)}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center p-2"
+                            title={t('admin.deleteOrder') || 'Delete Order'}
+                          >
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>

@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCategories } from '../../services/categoryService';
 import { getFeaturedProducts, getSaleProducts } from '../../services/productService';
-import { getBanners } from '../../services/bannerService';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { ChevronRight, ChevronLeft, Sparkles, Heart, ShoppingBag, Flame, Eye, Star } from 'lucide-react';
+import { Eye, Heart, ShoppingBag, Flame, Star, ChevronRight } from 'lucide-react';
 import { getCategoryIcon } from '../../utils/categoryIcons';
 import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../store/authStore';
@@ -13,6 +12,8 @@ import useCartStore from '../../store/cartStore';
 import useFavoritesStore from '../../store/favoritesStore';
 import useUIStore from '../../store/uiStore';
 import QuickViewModal from '../../components/ui/QuickViewModal';
+import HeroSection from '../../components/home/HeroSection';
+import BannersSection from '../../components/home/BannersSection';
 
 export default function Home() {
   const { t, i18n } = useTranslation();
@@ -25,15 +26,14 @@ export default function Home() {
   const [trendingProducts, setTrendingProducts] = useState([]);
   const [saleProducts, setSaleProducts] = useState([]);
   const [saleSectionEnabled, setSaleSectionEnabled] = useState(false);
-  const [saleGradients, setSaleGradients] = useState({ start: '#111827', end: '#111827' }); // Dark fallback
-  const [banners, setBanners] = useState([]);
-  const [currentBannerIdx, setCurrentBannerIdx] = useState(0);
+  const [saleGradients, setSaleGradients] = useState({ start: '#111827', end: '#111827' });
   const [loading, setLoading] = useState(true);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   // Dynamic section ordering from admin
   const defaultSections = [
     { id: 'hero', visible: true },
+    { id: 'banners', visible: true },
     { id: 'categories', visible: true },
     { id: 'sale', visible: true },
     { id: 'trending', visible: true },
@@ -41,37 +41,32 @@ export default function Home() {
   ];
   const [homepageSections, setHomepageSections] = useState(defaultSections);
 
-  // Auto-slide banners
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentBannerIdx((prev) => (prev + 1) % banners.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [banners.length]);
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [featured, cats, promoBanners, saleProds] = await Promise.all([
+        const [featured, cats, saleProds] = await Promise.all([
           getFeaturedProducts(),
           getCategories(true),
-          getBanners(true),
           getSaleProducts()
         ]);
         setTrendingProducts(featured.slice(0, 4));
         setCategories(cats.slice(0, 8));
-        setBanners(promoBanners);
         setSaleProducts(saleProds.slice(0, 6));
 
-        // Fetch storefront settings (sale toggle + section ordering)
         try {
           const saleDoc = await getDoc(doc(db, 'settings', 'storefront'));
           if (saleDoc.exists()) {
             const data = saleDoc.data();
             setSaleSectionEnabled(data.saleSectionEnabled || false);
             if (data.homepageSections && Array.isArray(data.homepageSections)) {
-              setHomepageSections(data.homepageSections);
+              let savedSections = data.homepageSections;
+              if (!savedSections.some(s => s.id === 'banners')) {
+                // Dynamically append banners if missing from legacy payloads
+                const heroIndex = savedSections.findIndex(s => s.id === 'hero');
+                const insertIndex = heroIndex !== -1 ? heroIndex + 1 : 1;
+                savedSections.splice(insertIndex, 0, { id: 'banners', visible: true });
+              }
+              setHomepageSections(savedSections);
             }
             if (data.specialOffersGradientStart || data.specialOffersGradientEnd) {
               setSaleGradients({
@@ -164,70 +159,6 @@ export default function Home() {
   };
 
   // ---- Section renderers ----
-  const renderHero = () => (
-    <>
-      {/* Hero Section */}
-      <section className="bg-[#fcfbf9] rounded-[2.5rem] p-8 md:p-16 flex flex-col md:flex-row items-center justify-between overflow-hidden relative shadow-sm border border-[#f3eee8]">
-        <div className={`absolute top-0 w-1/2 h-full bg-[#faeff0] opacity-30 mix-blend-multiply ${i18n.dir() === 'rtl' ? 'left-0 rounded-r-[4rem]' : 'right-0 rounded-l-[4rem]'}`}></div>
-        <div className={`md:w-1/2 space-y-8 relative z-10 ${i18n.dir() === 'rtl' ? 'pl-8' : 'pr-8'}`}>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-100 shadow-sm">
-            <Sparkles size={16} className="text-[#a2845e]" />
-            <span className="text-sm font-semibold tracking-widest text-[#a2845e] uppercase">{t('home.savoirFaire')}</span>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight leading-[1.1] font-serif">
-            {t('home.heroTitle1')} <br className="hidden md:block" /> {t('home.heroTitle2')} <br />
-            <span className="text-[#a2845e] font-serif italic font-light">{t('home.heroTitle3')}</span>
-          </h1>
-          <p className="text-lg text-gray-600 max-w-md leading-relaxed font-light">{t('home.heroDesc')}</p>
-          <div className="pt-4">
-            <Link to="/products" className="inline-flex items-center gap-3 bg-gray-900 hover:bg-[#a2845e] text-white font-medium px-8 py-4 rounded-full transition-all duration-300 shadow-xl shadow-gray-900/10 hover:shadow-2xl hover:shadow-[#a2845e]/20 hover:-translate-y-1 btn-interact">
-              {t('home.exploreCollection')} {i18n.dir() === 'rtl' ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-            </Link>
-          </div>
-        </div>
-        <div className="md:w-1/2 mt-16 md:mt-0 flex justify-center relative z-10 h-full">
-          <div className="w-full max-w-[500px] aspect-[4/5] bg-gray-100 rounded-[3rem] shadow-2xl overflow-hidden relative group">
-            <img src="https://images.unsplash.com/photo-1591561954557-26941169b49e?w=1200&q=80" alt="Luxury Handbag Lifestyle" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          </div>
-        </div>
-      </section>
-
-      {/* Promotional Banners Slider */}
-      {banners.length > 0 && (
-        <section className="relative rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 group bg-gray-900 h-[60vh] min-h-[400px]">
-          {banners.map((banner, idx) => (
-            <div key={banner.id} className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentBannerIdx ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-              <img src={banner.image} alt={banner.title} className="w-full h-full object-cover opacity-60 mix-blend-overlay" />
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-gray-900/60 to-transparent"></div>
-              <div className="absolute inset-0 p-8 md:p-16 flex flex-col justify-center max-w-2xl">
-                <h2 className="text-4xl md:text-6xl font-serif font-bold text-white mb-4 tracking-tight leading-tight drop-shadow-lg">{banner.title}</h2>
-                <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-lg font-light">{banner.subtitle}</p>
-                <div>
-                  <Link to={banner.ctaLink} className="inline-block bg-white hover:bg-gray-100 text-gray-900 font-semibold px-8 py-4 rounded-full transition-colors shadow-xl btn-interact">{banner.ctaText}</Link>
-                </div>
-              </div>
-            </div>
-          ))}
-          {banners.length > 1 && (
-            <>
-              <button onClick={() => setCurrentBannerIdx((p) => p === 0 ? banners.length - 1 : p - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white z-20 transition-all opacity-0 group-hover:opacity-100">
-                <ChevronLeft size={24} />
-              </button>
-              <button onClick={() => setCurrentBannerIdx((p) => (p + 1) % banners.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white z-20 transition-all opacity-0 group-hover:opacity-100">
-                <ChevronRight size={24} />
-              </button>
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-20">
-                {banners.map((_, idx) => (
-                  <button key={idx} onClick={() => setCurrentBannerIdx(idx)} className={`w-2.5 h-2.5 rounded-full transition-all ${idx === currentBannerIdx ? 'bg-white w-8' : 'bg-white/40 hover:bg-white/60'}`} />
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-      )}
-    </>
-  );
 
   const renderCategories = () => (
     <section>
@@ -349,9 +280,9 @@ export default function Home() {
     );
   };
 
-  // ---- Section map ----
   const sectionMap = {
-    hero: renderHero,
+    hero: () => <HeroSection />,
+    banners: () => <BannersSection />,
     categories: renderCategories,
     sale: renderSale,
     trending: renderTrending,

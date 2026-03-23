@@ -4,90 +4,164 @@ import {
   signOut as firebaseSignOut, 
   sendPasswordResetEmail,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  RecaptchaVerifier,
+  signInWithPhoneNumber
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
+/**
+ * Safely creates a user document in Firestore if it doesn't exist,
+ * or updates only the missing/changed fields if it does.
+ * Never overwrites role or createdAt.
+ */
+export const ensureUserDocument = async (user, extraData = {}) => {
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    // First time: create full document
+    const profile = {
+      uid: user.uid,
+      fullName: extraData.fullName || user.displayName || '',
+      email: extraData.email || user.email || '',
+      phone: extraData.phone || user.phoneNumber || '',
+      authMethod: extraData.authMethod || 'email',
+      role: 'customer',
+      region: '',
+      address: '',
+      notes: '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(ref, profile);
+    return profile;
+  } else {
+    // Already exists: update empty fields only, preserve role
+    const existing = snap.data();
+    const updates = { updatedAt: serverTimestamp() };
+    if (!existing.email && (extraData.email || user.email))  updates.email  = extraData.email || user.email || '';
+    if (!existing.phone && (extraData.phone || user.phoneNumber)) updates.phone = extraData.phone || user.phoneNumber || '';
+    if (!existing.fullName && (extraData.fullName || user.displayName)) updates.fullName = extraData.fullName || user.displayName || '';
+    await updateDoc(ref, updates);
+    return { ...existing, ...updates };
+  }
+};
+
 // Create a new user with email and password, and create a Firestore profile
 export const signUp = async (email, password, fullName) => {
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Create user profile document in Firestore
-    const userProfile = {
-      uid: user.uid,
-      fullName,
-      email,
-      role: 'customer',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-
-    await setDoc(doc(db, 'users', user.uid), userProfile);
-    
-    return { user, userProfile };
-  } catch (error) {
-    throw error;
-  }
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+  const userProfile = await ensureUserDocument(user, { fullName, email, authMethod: 'email' });
+  return { user, userProfile };
 };
 
 // Sign in with email and password
 export const signIn = async (email, password) => {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    // Fetch user profile to ensure it exists and get role
-    let userProfile = await getUserProfile(user.uid);
-    
-    // If somehow a profile doesn't exist, create it (e.g., from an old migration)
-    if (!userProfile) {
-      userProfile = {
-        uid: user.uid,
-        fullName: user.displayName || 'User',
-        email: user.email,
-        role: 'customer',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-      await setDoc(doc(db, 'users', user.uid), userProfile);
-    }
-
-    return { user, userProfile };
-  } catch (error) {
-    throw error;
-  }
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  const user = userCredential.user;
+  const userProfile = await ensureUserDocument(user, { email, authMethod: 'email' });
+  return { user, userProfile };
 };
 
 // Sign in with Google
 export const signInWithGoogle = async () => {
+  const provider = new GoogleAuthProvider();
+  const userCredential = await signInWithPopup(auth, provider);
+  const user = userCredential.user;
+  const userProfile = await ensureUserDocument(user, { authMethod: 'google' });
+  return { user, userProfile };
+};
+
+/**
+ * Creates a RecaptchaVerifier instance.
+ * Call this inside a useEffect one-time, or on-demand once.
+ * @param {HTMLElement} container - The DOM element ref
+ * @returns {RecaptchaVerifier}
+ */
+export const createRecaptchaVerifier = (container) => {
+  if (!container) return null;
+  
+  // Clear any old instance to avoid "already rendered" conflicts
+  if (window._recaptchaVerifier) {
+    try { window._recaptchaVerifier.clear(); } catch (_) {}
+    window._recaptchaVerifier = null;
+  }
+
   try {
-    const provider = new GoogleAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
-    const user = userCredential.user;
+    const verifier = new RecaptchaVerifier(auth, container, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved
+      },
+      'expired-callback': () => {
+        // reCAPTCHA expired, maybe reset
+      }
+    });
+    window._recaptchaVerifier = verifier;
+    return verifier;
+  } catch (err) {
+    console.error('[createRecaptchaVerifier] Failed:', err);
+    return null;
+  }
+};
 
-    // Check if profile exists
-    let userProfile = await getUserProfile(user.uid);
+/**
+ * Sends an OTP to a phone number using an existing verifier.
+ * @param {string} phoneNumber - E.164 format
+ * @param {RecaptchaVerifier} verifier
+ * @returns {ConfirmationResult}
+ */
+export const sendPhoneOTP = async (phoneNumber, verifier) => {
+  if (!verifier) {
+    throw new Error('reCAPTCHA not initialized. Please refresh.');
+  }
+
+  try {
+    console.log('[sendPhoneOTP] Sending to:', phoneNumber);
+    // Ensure it's rendered
+    await verifier.render();
     
-    // If not, create it
-    if (!userProfile) {
-      userProfile = {
-        uid: user.uid,
-        fullName: user.displayName || 'Google User',
-        email: user.email,
-        role: 'customer',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-      await setDoc(doc(db, 'users', user.uid), userProfile);
-    }
-
-    return { user, userProfile };
+    const result = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    return result;
   } catch (error) {
+    console.error('[sendPhoneOTP] Firebase Auth 400 Error Details:', {
+      code: error.code,
+      message: error.message,
+      fullError: error
+    });
+    
+    // Friendly mapping for common 400 errors
+    if (error.code === 'auth/invalid-phone-number') {
+      throw new Error('The phone number is invalid. Use E.164 format (e.g. +97250...)');
+    }
+    if (error.code === 'auth/unauthorized-domain') {
+      throw new Error('This domain is not authorized in Firebase Console.');
+    }
+    
     throw error;
   }
+};
+
+
+
+/**
+ * Verify the OTP code returned from sendPhoneOTP.
+ * @param {ConfirmationResult} confirmationResult
+ * @param {string} code - 6-digit OTP
+ * @param {string} fullName - Optional, for new phone sign-ups
+ * @returns {{ user, userProfile }}
+ */
+export const verifyPhoneOTP = async (confirmationResult, code, fullName = '') => {
+  const result = await confirmationResult.confirm(code);
+  const user = result.user;
+  const userProfile = await ensureUserDocument(user, {
+    phone: user.phoneNumber || '',
+    fullName,
+    authMethod: 'phone'
+  });
+  return { user, userProfile };
 };
 
 // Sign out
@@ -150,6 +224,45 @@ export const getUsers = async () => {
     }));
   } catch (error) {
     console.error("Error fetching all users:", error);
+    throw error;
+  }
+};
+
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase/config';
+
+// Cloud Function 1: Request Password Reset OTP
+export const requestPasswordResetOTP = async (email, lang = 'en') => {
+  try {
+    const fn = httpsCallable(functions, 'requestPasswordReset');
+    const response = await fn({ email, lang });
+    return response.data;
+  } catch (error) {
+    console.error('requestPasswordResetOTP error:', error);
+    throw error;
+  }
+};
+
+// Cloud Function 1.5: Verify OTP (UI intermediary step)
+export const verifyOTPOnly = async (email, otp) => {
+  try {
+    const fn = httpsCallable(functions, 'verifyOTPOnly');
+    const response = await fn({ email, otp });
+    return response.data;
+  } catch (error) {
+    console.error('verifyOTPOnly error:', error);
+    throw error;
+  }
+};
+
+// Cloud Function 2: Verify OTP & Reset Password
+export const verifyOTPAndResetPassword = async (email, otp, newPassword) => {
+  try {
+    const fn = httpsCallable(functions, 'verifyAndResetPassword');
+    const response = await fn({ email, otp, newPassword });
+    return response.data;
+  } catch (error) {
+    console.error('verifyOTPAndResetPassword error:', error);
     throw error;
   }
 };

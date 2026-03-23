@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useCartStore from '../../store/cartStore';
 import { useTranslation } from 'react-i18next';
+import { getDeliverySettings } from '../../services/deliveryService';
 
 export default function Cart() {
   const { t, i18n } = useTranslation();
@@ -17,8 +18,17 @@ export default function Cart() {
     updateQuantity,
     removeItem,
     applyCoupon,
-    removeCoupon
+    removeCoupon,
+    setDeliverySettings
   } = useCartStore();
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const settings = await getDeliverySettings();
+      setDeliverySettings(settings);
+    };
+    fetchSettings();
+  }, [setDeliverySettings]);
 
   const handleApplyCoupon = async (e) => {
     e.preventDefault();

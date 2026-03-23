@@ -32,6 +32,7 @@ import AdminUsers from '../pages/admin/Users';
 import AdminSettings from '../pages/admin/Settings';
 import ProductForm from '../pages/admin/ProductForm';
 import OptionTemplates from '../pages/admin/OptionTemplates';
+import HeroEditor from '../pages/admin/HeroEditor';
 
 export const router = createBrowserRouter([
   {
@@ -131,6 +132,10 @@ export const router = createBrowserRouter([
       {
         path: 'banners',
         element: <AdminBanners />
+      },
+      {
+        path: 'hero',
+        element: <HeroEditor />
       },
       {
         path: 'products/new',
