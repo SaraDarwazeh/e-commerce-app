@@ -82,7 +82,7 @@
             "failedToUpdateFav": "فشل تحديث المفضلة",
             "loading": "جاري تحميل المنتج...",
             "noDescription": "لا يوجد وصف متاح.",
-            "inStock": "متوفر ({{count}})",
+            "inStock": "متوفر",
             "outOfStock": "نفذت الكمية",
             "addedTemp": "تمت الإضافة ✓",
             "adding": "جاري الإضافة...",

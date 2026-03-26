@@ -184,7 +184,7 @@ export default function ProductDetails() {
             <div className="text-lg text-gray-400 line-through">₪{product.comparePrice.toFixed(2)}</div>
           )}
           <div className={`text-sm px-2 py-1 rounded-full ${product.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {product.stock > 0 ? t('productDetails.inStock', { count: product.stock }) : t('productDetails.outOfStock')}
+            {product.stock > 0 ? t('productDetails.inStock') : t('productDetails.outOfStock')}
           </div>
         </div>
 

@@ -82,7 +82,7 @@
             "failedToUpdateFav": "Failed to update favorites",
             "loading": "Loading product...",
             "noDescription": "No description available.",
-            "inStock": "In Stock ({{count}})",
+            "inStock": "In Stock",
             "outOfStock": "Out of Stock",
             "addedTemp": "Added ✓",
             "adding": "Adding...",

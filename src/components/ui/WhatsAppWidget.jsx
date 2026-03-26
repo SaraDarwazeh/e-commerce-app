@@ -26,7 +26,8 @@ export default function WhatsAppWidget() {
   if (location.pathname.startsWith('/admin')) return null;
   if (!config.enabled || !config.number) return null;
 
-  const waUrl = `https://wa.me/${config.number}`;
+  const cleanNumber = config.number ? config.number.replace(/[\s+]/g, '') : '';
+  const waUrl = `https://wa.me/${cleanNumber}`;
 
   return (
     <div className={`fixed bottom-6 ${isRTL ? 'left-6' : 'right-6'} z-50 flex items-center gap-3 animate-fade-in group`}>
