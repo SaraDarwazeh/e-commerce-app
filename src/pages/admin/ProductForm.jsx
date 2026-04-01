@@ -45,6 +45,7 @@ export default function ProductForm() {
     ribbonColor: '#ef4444',
     showInSaleSection: false,
     salePercent: '',
+    variants: [],
   });
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function ProductForm() {
               ribbonColor: prod.ribbonColor || '#ef4444',
               showInSaleSection: prod.showInSaleSection || false,
               salePercent: prod.salePercent || '',
+              variants: prod.variants || (prod.colors?.length ? prod.colors.map(c => ({ color: c, label: c, stock: 0 })) : []),
             });
           }
         }
@@ -224,11 +226,12 @@ export default function ProductForm() {
     e.preventDefault();
     setIsSaving(true);
     try {
+      const totalStock = formData.variants?.length ? formData.variants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0) : Number(formData.stock);
       const payload = {
         ...formData,
         price: Number(formData.price),
         comparePrice: formData.comparePrice ? Number(formData.comparePrice) : null,
-        stock: Number(formData.stock),
+        stock: totalStock,
         salePercent: formData.salePercent ? Number(formData.salePercent) : null,
         options: formData.options.filter(o => o.name.trim() !== '' && o.values.length > 0)
       };
@@ -307,7 +310,7 @@ export default function ProductForm() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.stock')}</label>
-              <input required name="stock" value={formData.stock} onChange={handleChange} type="number" min="0" className="w-full border-gray-300 rounded-md p-2 border" />
+              <input required={!formData.variants?.length} disabled={formData.variants?.length > 0} name="stock" value={formData.variants?.length > 0 ? formData.variants.reduce((acc, v) => acc + (Number(v.stock)||0), 0) : formData.stock} onChange={handleChange} type="number" min="0" className="w-full border-gray-300 rounded-md p-2 border disabled:bg-gray-100 disabled:text-gray-500" title={formData.variants?.length > 0 ? "Calculated from variants" : ""} />
             </div>
           </div>
 
@@ -414,10 +417,10 @@ export default function ProductForm() {
           </div>
         </div>
 
-        {/* Colors */}
-        <ColorsSection
-          colors={formData.colors}
-          onChange={(colors) => setFormData(prev => ({ ...prev, colors }))}
+        {/* Variants / Colors */}
+        <VariantsSection
+          variants={formData.variants || []}
+          onChange={(variants) => setFormData(prev => ({ ...prev, variants }))}
           t={t}
         />
 
@@ -552,53 +555,66 @@ const COLOR_PALETTE = [
   { name: 'Olive',       hex: '#708238' },
 ];
 
-function ColorsSection({ colors, onChange, t }) {
+function VariantsSection({ variants, onChange, t }) {
   const [customHex, setCustomHex] = useState('#888888');
 
-  const toggleColor = (hex) => {
-    if (colors.includes(hex)) {
-      onChange(colors.filter(c => c !== hex));
-    } else {
-      onChange([...colors, hex]);
+  const addVariant = (hex, name) => {
+    if (!variants.some(v => v.color === hex)) {
+      onChange([...variants, { color: hex, label: name || hex, stock: 0 }]);
     }
   };
 
-  const addCustom = () => {
-    if (!colors.includes(customHex)) {
-      onChange([...colors, customHex]);
-    }
+  const removeVariant = (hex) => {
+    onChange(variants.filter(v => v.color !== hex));
+  };
+
+  const updateVariantStock = (hex, stock) => {
+    onChange(variants.map(v => v.color === hex ? { ...v, stock: Number(stock) } : v));
   };
 
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-5">
       <h2 className="text-lg font-bold text-gray-900 border-b pb-2">
-        {t('admin.productColors', 'Product Colors')}
+        {t('admin.productColorsAndStock', 'Product Colors & Stock')}
       </h2>
 
-      {/* Selected swatches */}
-      {colors.length > 0 && (
-        <div>
+      {/* Selected variants */}
+      {variants.length > 0 && (
+        <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            {t('admin.selectedColors', 'Selected Colors')} ({colors.length})
+            {t('admin.selectedVariants', 'Selected Variants')} ({variants.length})
           </p>
-          <div className="flex flex-wrap gap-3">
-            {colors.map(hex => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {variants.map(v => (
               <div
-                key={hex}
-                className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 shadow-sm"
+                key={v.color}
+                className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
               >
                 <div
-                  className="w-4 h-4 rounded-full border border-gray-300 shadow-inner flex-shrink-0"
-                  style={{ backgroundColor: hex }}
+                  className="w-6 h-6 rounded-full border border-gray-300 shadow-inner flex-shrink-0"
+                  style={{ backgroundColor: v.color }}
+                  title={v.label}
                 />
-                <span className="text-xs font-mono text-gray-600">{hex}</span>
-                <button
-                  type="button"
-                  onClick={() => onChange(colors.filter(c => c !== hex))}
-                  className="text-gray-400 hover:text-red-500 ml-1"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-gray-700">{v.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">{t('admin.stock')}:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={v.stock}
+                    onChange={(e) => updateVariantStock(v.color, e.target.value)}
+                    className="w-16 border-gray-300 rounded p-1 text-sm border focus:ring-brand-500 focus:border-brand-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(v.color)}
+                    className="text-gray-400 hover:text-red-500 p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -606,21 +622,21 @@ function ColorsSection({ colors, onChange, t }) {
       )}
 
       {/* Curated palette */}
-      <div>
+      <div className="pt-2">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          {t('admin.colorPalette', 'Color Palette — click to select')}
+          {t('admin.colorPalette', 'Color Palette — click to add')}
         </p>
         <div className="flex flex-wrap gap-2">
           {COLOR_PALETTE.map(({ name, hex }) => {
-            const selected = colors.includes(hex);
+            const isAdded = variants.some(v => v.color === hex);
             return (
               <button
                 key={hex}
                 type="button"
                 title={name}
-                onClick={() => toggleColor(hex)}
+                onClick={isAdded ? () => removeVariant(hex) : () => addVariant(hex, name)}
                 className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none ${
-                  selected
+                  isAdded
                     ? 'border-brand-600 ring-2 ring-brand-400 ring-offset-1 scale-110'
                     : 'border-gray-300 hover:border-gray-500'
                 }`}
@@ -646,11 +662,11 @@ function ColorsSection({ colors, onChange, t }) {
           <span className="text-sm font-mono text-gray-600">{customHex}</span>
           <button
             type="button"
-            onClick={addCustom}
-            disabled={colors.includes(customHex)}
+            onClick={() => addVariant(customHex, customHex)}
+            disabled={variants.some(v => v.color === customHex)}
             className="px-4 py-2 bg-gray-100 border border-gray-200 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {colors.includes(customHex)
+            {variants.some(v => v.color === customHex)
               ? t('admin.colorAdded', 'Added ✓')
               : `+ ${t('admin.addColor', 'Add Color')}`}
           </button>

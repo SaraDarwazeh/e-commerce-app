@@ -161,7 +161,14 @@ export default function AdminOrders() {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900">{item.title}</h4>
-                      <div className="text-sm text-gray-500 mt-1 flex gap-3">
+                      <div className="text-sm text-gray-500 mt-1 flex gap-3 items-center">
+                        {item.selectedColor && (
+                          <span 
+                            className="w-4 h-4 rounded-full border border-gray-200 shadow-sm block flex-shrink-0" 
+                            style={{ backgroundColor: item.selectedColor }} 
+                            title={t('admin.selectedColor', 'Color: ') + item.selectedColor}
+                          />
+                        )}
                         {item.selectedOptions && Object.entries(item.selectedOptions).map(([k, v]) => (
                           <span key={k}>{k}: {v}</span>
                         ))}
@@ -254,14 +261,23 @@ export default function AdminOrders() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <h3 className="font-bold text-gray-900 mb-4 uppercase tracking-wider text-xs border-b border-gray-100 pb-2">{t('admin.deliveryDetails')}</h3>
               <div className="space-y-4">
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">{t('admin.region') || 'Region'}</div>
-                  <div className="font-medium text-gray-900">{selectedOrder.deliveryRegion}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">{t('admin.addressLabel') || 'Address'}</div>
-                  <div className="font-medium text-gray-900 leading-relaxed">{selectedOrder.address}</div>
-                </div>
+                {selectedOrder.deliveryType === 'pickup' ? (
+                  <div className="bg-brand-50 p-4 rounded-xl border border-brand-100 mt-2">
+                    <div className="text-xs text-brand-600 mb-1 uppercase font-bold tracking-wider">{t('checkout.pickupLocationAssured')}</div>
+                    <div className="font-medium text-gray-900 leading-relaxed text-sm">{selectedOrder.address}</div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('admin.region') || 'Region'}</div>
+                      <div className="font-medium text-gray-900">{selectedOrder.deliveryRegion}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('admin.addressLabel') || 'Address'}</div>
+                      <div className="font-medium text-gray-900 leading-relaxed">{selectedOrder.address}</div>
+                    </div>
+                  </>
+                )}
                 {selectedOrder.notes && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">{t('admin.notes') || 'Notes'}</div>

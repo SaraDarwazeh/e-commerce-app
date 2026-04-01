@@ -6,6 +6,7 @@ import useUIStore from '../../store/uiStore';
 import { updateUserProfile } from '../../services/authService';
 import { createOrder } from '../../services/orderService';
 import { getDeliverySettings } from '../../services/deliveryService';
+import { getPickupPoints } from '../../services/pickupPointService';
 import BackButton from '../../components/ui/BackButton';
 import { Banknote, CreditCard } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +27,10 @@ export default function Checkout() {
   });
 
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [deliveryType, setDeliveryType] = useState('home');
+  const [pickupPoints, setPickupPoints] = useState([]);
+  const [selectedPickup, setSelectedPickup] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,21 +47,39 @@ export default function Checkout() {
       const settings = await getDeliverySettings();
       setDeliverySettings(settings);
     };
+    const fetchPoints = async () => {
+      const points = await getPickupPoints(true);
+      setPickupPoints(points);
+      if (points.length > 0) setSelectedPickup(points[0].id);
+    };
     fetchSettings();
+    fetchPoints();
   }, [setDeliverySettings]);
 
   useEffect(() => {
     // Sync store region any time formData.region changes
-    setDeliveryRegion(formData.region);
-  }, [formData.region, setDeliveryRegion]);
+    if (deliveryType === 'pickup') {
+      setDeliveryRegion('Pickup');
+    } else {
+      setDeliveryRegion(formData.region);
+    }
+  }, [formData.region, deliveryType, setDeliveryRegion]);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setError('');
 
     // Basic validation
-    if (!formData.fullName || !formData.phone || !formData.address) {
-      setError(t('checkout.fillShipping'));
+    if (!formData.fullName || !formData.phone) {
+      setError(t('checkout.fillShipping', 'Please fill all required shipping information.'));
+      return;
+    }
+    if (deliveryType === 'home' && !formData.address) {
+      setError(t('checkout.fillShipping', 'Please fill all required shipping information.'));
+      return;
+    }
+    if (deliveryType === 'pickup' && !selectedPickup) {
+      setError(t('checkout.selectPickup', 'Please select a pickup point.'));
       return;
     }
     if (!paymentMethod) {
@@ -73,13 +96,16 @@ export default function Checkout() {
       }
 
       // Real order placement
+      const pickupData = deliveryType === 'pickup' ? pickupPoints.find(p => p.id === selectedPickup) : null;
       const orderData = {
         customerId: currentUser?.uid || 'guest',
         customerName: formData.fullName,
         customerEmail: userProfile?.email || currentUser?.email || 'Guest',
         customerPhone: formData.phone,
-        deliveryRegion: formData.region,
-        address: formData.address,
+        deliveryType: deliveryType,
+        deliveryRegion: deliveryType === 'pickup' ? `Pickup Point` : formData.region,
+        pickupPointId: deliveryType === 'pickup' ? selectedPickup : null,
+        address: deliveryType === 'pickup' ? pickupData?.location : formData.address,
         notes: formData.notes,
         paymentMethod: paymentMethod,
         paymentStatus: paymentMethod === 'cod' ? 'unpaid' : 'pending_verification',
@@ -89,6 +115,7 @@ export default function Checkout() {
           price: Number(i.price || 0),
           quantity: Number(i.quantity || 1),
           selectedOptions: i.selectedOptions || {},
+          selectedColor: i.selectedColor || null,
           images: i.images || [i.image].filter(Boolean) || []
         })),
         totals: {
@@ -141,28 +168,56 @@ export default function Checkout() {
 
           <div className="bg-white p-6 rounded-xl border border-gray-200">
             <h2 className="text-lg font-bold text-gray-900 mb-4">{t('checkout.shippingInfo')}</h2>
+            <div className="flex gap-4 mb-6">
+              <label className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors ${deliveryType === 'home' ? 'border-brand-600 bg-brand-50 text-brand-700 ring-1 ring-brand-600' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                <input type="radio" value="home" checked={deliveryType === 'home'} onChange={() => setDeliveryType('home')} className="hidden" />
+                <div className="font-medium text-center">{t('checkout.homeDelivery')}</div>
+              </label>
+              <label className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors ${deliveryType === 'pickup' ? 'border-brand-600 bg-brand-50 text-brand-700 ring-1 ring-brand-600' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                <input type="radio" value="pickup" checked={deliveryType === 'pickup'} onChange={() => setDeliveryType('pickup')} className="hidden" />
+                <div className="font-medium text-center">{t('checkout.pickupLocation')}</div>
+              </label>
+            </div>
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.fullName')} <span className="text-red-500">*</span></label>
                 <input type="text" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder={t('checkout.firstLast')} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.phoneNumber')} <span className="text-red-500">*</span></label>
-                  <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="059... / 052..." />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.deliveryRegion')} <span className="text-red-500">*</span></label>
-                  <select value={formData.region} onChange={e => setFormData({ ...formData, region: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
-                    <option value="West Bank">{t('checkout.westBank')}</option>
-                    <option value="Inside">{t('checkout.inside48')}</option>
-                  </select>
-                </div>
-              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.exactAddress')} <span className="text-red-500">*</span></label>
-                <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder={t('checkout.addressPlaceholder')} />
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.phoneNumber')} <span className="text-red-500">*</span></label>
+                <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="059... / 052..." />
               </div>
+
+              {deliveryType === 'home' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.deliveryRegion')} <span className="text-red-500">*</span></label>
+                    <select value={formData.region} onChange={e => setFormData({ ...formData, region: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+                      <option value="West Bank">{t('checkout.westBank')}</option>
+                      <option value="Inside">{t('checkout.inside48')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.exactAddress')} <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder={t('checkout.addressPlaceholder')} />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.selectPickup')} <span className="text-red-500">*</span></label>
+                  {pickupPoints.length > 0 ? (
+                    <select value={selectedPickup} onChange={e => setSelectedPickup(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none">
+                      {pickupPoints.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} - {p.location}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-sm text-red-500">{t('checkout.noPickups')}</div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('checkout.orderNotes')}</label>
                 <input type="text" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder={t('checkout.notesPlaceholder')} />

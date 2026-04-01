@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, FolderTree, Users, LogOut, Tag, Settings, Image, ExternalLink, Sliders, ChevronLeft, ChevronRight, LayoutTemplate } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, FolderTree, Users, LogOut, Tag, Settings, Image, ExternalLink, Sliders, ChevronLeft, ChevronRight, LayoutTemplate, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function AdminLayout() {
@@ -179,6 +179,18 @@ export default function AdminLayout() {
               <>
                 <Settings className={`w-5 h-5 flex-shrink-0 ${isCollapsed ? '' : 'rtl:ml-3 ltr:mr-3'} ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
                 {!isCollapsed && <span className="whitespace-nowrap transition-opacity duration-200">{t('admin.settings')}</span>}
+              </>
+            )}
+          </NavLink>
+          <NavLink
+            to="/admin/pickup-points"
+            title={isCollapsed ? "Pickup Points" : ''}
+            className={({ isActive }) => `flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors group ${isActive ? 'text-brand-600 bg-brand-50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'} ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            {({ isActive }) => (
+              <>
+                <MapPin className={`w-5 h-5 flex-shrink-0 ${isCollapsed ? '' : 'rtl:ml-3 ltr:mr-3'} ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                {!isCollapsed && <span className="whitespace-nowrap transition-opacity duration-200">Pickup Points</span>}
               </>
             )}
           </NavLink>

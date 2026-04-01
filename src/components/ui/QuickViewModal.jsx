@@ -61,7 +61,18 @@ export default function QuickViewModal({ product, onClose }) {
             }
         }
 
-        await addItem(product, 1, selectedOptions);
+        const addedOptions = { ...selectedOptions };
+        let finalColor = null;
+
+        const colorKey = Object.keys(addedOptions).find(k => k.toLowerCase().includes('color'));
+        if (colorKey) {
+            const val = addedOptions[colorKey];
+            const [, hexColor] = val.includes('|') ? val.split('|') : [val, val];
+            finalColor = hexColor;
+            delete addedOptions[colorKey];
+        }
+
+        await addItem(product, 1, addedOptions, finalColor);
         addToast(t('home.addedToCart'), 'success');
         handleClose();
     };

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getProducts, deleteProduct, updateProduct } from '../../services/productService';
+import { getProducts, deleteProduct, updateProduct, subscribeToProducts } from '../../services/productService';
 import { getCategories } from '../../services/categoryService';
 import useUIStore from '../../store/uiStore';
 import { useTranslation } from 'react-i18next';
@@ -15,24 +15,23 @@ export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const [prodsData, catsData] = await Promise.all([
-        getProducts(), // Get all products
-        getCategories() // Get all categories
-      ]);
-      setProducts(prodsData);
-      setCategories(catsData);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchData();
+    const fetchCats = async () => {
+      try {
+        const catsData = await getCategories();
+        setCategories(catsData);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchCats();
+
+    const unsubscribe = subscribeToProducts(false, (updatedProducts) => {
+      setProducts(updatedProducts);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleDelete = (id) => {
@@ -45,7 +44,6 @@ export default function AdminProducts() {
         try {
           await deleteProduct(id);
           addToast('Product deleted successfully', 'success');
-          fetchData();
         } catch (err) {
           addToast(err.message, 'error');
         }
@@ -57,7 +55,6 @@ export default function AdminProducts() {
     try {
       await updateProduct(product.id, { isActive: !product.isActive });
       addToast(`Product is now ${!product.isActive ? 'active' : 'hidden'}`, 'success');
-      fetchData();
     } catch (err) {
       addToast(err.message, 'error');
     }
@@ -139,9 +136,16 @@ export default function AdminProducts() {
                     <td className="px-6 py-4 text-gray-600 capitalize truncate max-w-[120px]">{product.category ? product.category.replace('-', ' ') : '-'}</td>
                     <td className="px-6 py-4 font-medium text-gray-900">₪{Number(product.price).toFixed(2)}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.stock > 20 ? 'bg-green-100 text-green-700' : product.stock > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                        {product.stock} in stock
-                      </span>
+                      {(() => {
+                        const totalStock = product.variants && product.variants.length > 0
+                          ? product.variants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0)
+                          : (Number(product.stock) || 0);
+                        return (
+                          <span className={`px-2 py-1 flex items-center w-max rounded-full text-xs font-medium ${totalStock > 20 ? 'bg-green-100 text-green-700' : totalStock > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                            {totalStock} {t('admin.stock', 'in stock').replace('ين ستوك', '')}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button

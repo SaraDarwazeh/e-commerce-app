@@ -10,7 +10,8 @@ import {
   deleteDoc,
   serverTimestamp,
   query,
-  where
+  where,
+  onSnapshot
 } from 'firebase/firestore';
 
 const PRODUCTS_COLLECTION = 'products';
@@ -53,6 +54,41 @@ export const getProducts = async (activeOnly = false) => {
   });
 
   return products;
+};
+
+/**
+ * Subscribe to all products in real-time.
+ * @param {boolean} activeOnly - If true, fetches only isActive == true
+ * @param {function} callback - Callback fired with the updated products array
+ * @returns {function} unsubscribe function
+ */
+export const subscribeToProducts = (activeOnly = false, callback) => {
+  const productsRef = collection(db, PRODUCTS_COLLECTION);
+  let q;
+
+  if (activeOnly) {
+    q = query(productsRef, where('isActive', '==', true));
+  } else {
+    q = query(productsRef);
+  }
+
+  return onSnapshot(q, (snapshot) => {
+    const products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Sort client-side by createdAt descending
+    products.sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.() ?? new Date(a.createdAt ?? 0);
+      const bTime = b.createdAt?.toDate?.() ?? new Date(b.createdAt ?? 0);
+      return bTime - aTime;
+    });
+
+    callback(products);
+  }, (error) => {
+    console.error("Error subscribing to products:", error);
+  });
 };
 
 /**

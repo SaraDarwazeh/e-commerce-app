@@ -17,7 +17,8 @@
             "faqs": "FAQs",
             "shippingReturns": "Shipping & Returns",
             "allRightsReserved": "© 2026 Gold Bag. All rights reserved.",
-            "featuredBags": "Featured Bags"
+            "featuredBags": "Featured Bags",
+            "back": "Back"
         },
         "home": {
             "savoirFaire": "Savoir-Faire",
@@ -141,7 +142,13 @@
             "placeOrder": "Place Order",
             "fillShipping": "Please fill out all required shipping fields.",
             "selectPayment": "Please select a payment method.",
-            "orderPlaced": "Order Placed Successfully!"
+            "orderPlaced": "Order Placed Successfully!",
+            "homeDelivery": "Home Delivery",
+            "pickupPointTitle": "Pickup Drop-off Point",
+            "pickupLocation": "Pickup Location",
+            "pickupLocationAssured": "Pickup Location Assured",
+            "selectPickup": "Select Pickup Point",
+            "noPickups": "No active pickup points available."
         },
         "auth": {
             "pwdWeak": "Weak",
@@ -237,6 +244,27 @@
             "removeFailed": "Removal failed",
             "selectOptions": "Please select your options first",
             "movedToCart": "Moved to cart"
+        },
+        "pickup": {
+            "pickupPoints": "Pickup Points",
+            "addPoint": "Add Point",
+            "name": "Name (e.g., Central Station)",
+            "location": "Location / Details",
+            "save": "Save",
+            "update": "Update",
+            "cancel": "Cancel",
+            "activeLabel": "Active (Visible to customers)",
+            "statusInfo": "Status",
+            "actions": "Actions",
+            "active": "Active",
+            "inactive": "Inactive",
+            "editPickupPoint": "Edit Pickup Point",
+            "newPickupPoint": "New Pickup Point",
+            "deleteConfirm": "Are you sure you want to delete this pickup point?",
+            "deletedSuccessfully": "Deleted successfully",
+            "pointCreated": "Pickup point created",
+            "pointUpdated": "Pickup point updated",
+            "noPoints": "No pickup points found."
         },
         "admin": {
             "whatsappSettings": "WhatsApp Widget Settings",

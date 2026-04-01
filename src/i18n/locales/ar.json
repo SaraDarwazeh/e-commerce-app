@@ -17,7 +17,8 @@
             "faqs": "الأسئلة الشائعة",
             "shippingReturns": "الشحن والاسترجاع",
             "allRightsReserved": "© 2026 الحقيبة الذهبية. جميع الحقوق محفوظة.",
-            "featuredBags": "حقائب مميزة"
+            "featuredBags": "حقائب مميزة",
+            "back": "رجوع"
         },
         "home": {
             "savoirFaire": "المهارة والحرفية",
@@ -141,7 +142,13 @@
             "placeOrder": "تأكيد الطلب",
             "fillShipping": "يرجى ملء جميع حقول الشحن المطلوبة.",
             "selectPayment": "يرجى تحديد طريقة دفع.",
-            "orderPlaced": "تم تقديم الطلب بنجاح!"
+            "orderPlaced": "تم تقديم الطلب بنجاح!",
+            "homeDelivery": "توصيل للمنزل",
+            "pickupPointTitle": "نقطة الاستلام",
+            "pickupLocation": "الاستلام من نقطة",
+            "pickupLocationAssured": "موقع الاستلام مؤكد",
+            "selectPickup": "اختر نقطة الاستلام",
+            "noPickups": "لا تتوفر نقاط استلام نشطة."
         },
         "auth": {
             "pwdWeak": "ضعيف",
@@ -237,6 +244,27 @@
             "removeFailed": "فشلت الإزالة",
             "selectOptions": "يرجى تحديد الخيارات أولاً",
             "movedToCart": "تم النقل إلى العربة"
+        },
+        "pickup": {
+            "pickupPoints": "نقاط الاستلام",
+            "addPoint": "إضافة نقطة",
+            "name": "الاسم (مثال: المحطة المركزية)",
+            "location": "الموقع / التفاصيل",
+            "save": "حفظ",
+            "update": "تحديث",
+            "cancel": "إلغاء",
+            "activeLabel": "نشط (مرئي للعملاء)",
+            "statusInfo": "الحالة",
+            "actions": "إجراءات",
+            "active": "نشط",
+            "inactive": "غير نشط",
+            "editPickupPoint": "تعديل نقطة الاستلام",
+            "newPickupPoint": "نقطة استلام جديدة",
+            "deleteConfirm": "هل أنت متأكد أنك تريد حذف نقطة الاستلام هذه؟",
+            "deletedSuccessfully": "تم الحذف بنجاح",
+            "pointCreated": "تم إنشاء نقطة الاستلام",
+            "pointUpdated": "تم تحديث نقطة الاستلام",
+            "noPoints": "لا توجد نقاط استلام."
         },
         "admin": {
             "whatsappSettings": "إعدادات أداة الواتساب",

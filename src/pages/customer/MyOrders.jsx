@@ -143,8 +143,17 @@ export default function MyOrders() {
               <h3 className="font-bold text-gray-900 uppercase tracking-wider text-xs">{t('orders.deliveryDetails')}</h3>
               <div>
                 <p className="font-medium text-gray-900">{selectedOrder.customerName}</p>
-                <p className="text-sm text-gray-600 mt-1">{selectedOrder.address || t('orders.noAddress')}</p>
-                <p className="text-sm text-gray-600">{selectedOrder.deliveryRegion || 'West Bank'}</p>
+                {selectedOrder.deliveryType === 'pickup' ? (
+                  <div className="bg-brand-50 text-brand-700 p-3 rounded-lg mt-2 inline-block border border-brand-100 w-full">
+                    <p className="font-bold text-xs uppercase tracking-wider mb-0.5">{t('checkout.pickupPointTitle')}</p>
+                    <p className="text-sm font-medium">{selectedOrder.address}</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 mt-1">{selectedOrder.address || t('orders.noAddress')}</p>
+                    <p className="text-sm text-gray-600">{selectedOrder.deliveryRegion || 'West Bank'}</p>
+                  </>
+                )}
                 {selectedOrder.notes && <p className="text-sm text-amber-700 bg-amber-50 p-2 mt-2 rounded">{t('orders.note', { note: selectedOrder.notes })}</p>}
               </div>
             </div>
@@ -194,7 +203,14 @@ export default function MyOrders() {
                         {i18n.language === 'ar' && item.titleAr ? item.titleAr : item.title}
                       </Link>
                     </h4>
-                    <div className="text-xs text-gray-500 mt-1 flex gap-2">
+                    <div className="text-xs text-gray-500 mt-1 flex gap-2 items-center">
+                      {item.selectedColor && (
+                        <span 
+                          className="w-4 h-4 rounded-full border border-gray-200 shadow-sm block flex-shrink-0" 
+                          style={{ backgroundColor: item.selectedColor }} 
+                          title={item.selectedColor}
+                        />
+                      )}
                       {item.selectedOptions && Object.entries(item.selectedOptions).map(([k, v]) => <span className="bg-white px-2 py-0.5 rounded border border-gray-200" key={k}>{v.split('|')[0]}</span>)}
                     </div>
                     <div className="text-sm text-gray-600 mt-2">{t('orders.qty')}: {item.quantity} × ₪{Number(item.price || 0).toFixed(2)}</div>

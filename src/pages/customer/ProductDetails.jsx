@@ -32,6 +32,11 @@ export default function ProductDetails() {
 
   // Dynamic options state: { "Size": "M", "Color": "Red" }
   const [selectedOptions, setSelectedOptions] = useState({});
+  const [selectedVariantColor, setSelectedVariantColor] = useState(null);
+
+  const currentStock = product?.variants?.length > 0 && selectedVariantColor
+    ? product.variants.find(v => v.color === selectedVariantColor)?.stock || 0
+    : (product?.stock || 0);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -54,6 +59,9 @@ export default function ProductDetails() {
         // Initialize default selections if provided
         if (data.defaultSelections) {
           setSelectedOptions(data.defaultSelections);
+        }
+        if (data.variants?.length > 0) {
+          setSelectedVariantColor(data.variants[0].color);
         }
       } catch (err) {
         setError(t('productDetails.failedToLoad'));
@@ -91,7 +99,23 @@ export default function ProductDetails() {
       return;
     }
 
-    await addItem(product, 1, selectedOptions);
+    if (product.variants?.length > 0 && !selectedVariantColor) {
+      addToast('يرجى اختيار لون', 'info');
+      return;
+    }
+
+    const addedOptions = { ...selectedOptions };
+    let finalColor = selectedVariantColor;
+
+    const colorKey = Object.keys(addedOptions).find(k => k.toLowerCase().includes('color'));
+    if (colorKey && !finalColor) {
+       const val = addedOptions[colorKey];
+       const [, hexColor] = val.includes('|') ? val.split('|') : [val, val];
+       finalColor = hexColor;
+       delete addedOptions[colorKey];
+    }
+
+    await addItem(product, 1, addedOptions, finalColor);
     setAddedTemp(true);
     setTimeout(() => setAddedTemp(false), 2000);
   };
@@ -118,7 +142,7 @@ export default function ProductDetails() {
   if (error || !product) return <div className="py-20 text-center text-red-500">{error}</div>;
 
   const missingOptions = getMissingOptions();
-  const canAddToCart = missingOptions.length === 0 && product.stock > 0 && !isAdding;
+  const canAddToCart = missingOptions.length === 0 && currentStock > 0 && !isAdding;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -183,14 +207,32 @@ export default function ProductDetails() {
           {product.comparePrice > product.price && (
             <div className="text-lg text-gray-400 line-through">₪{product.comparePrice.toFixed(2)}</div>
           )}
-          <div className={`text-sm px-2 py-1 rounded-full ${product.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {product.stock > 0 ? t('productDetails.inStock') : t('productDetails.outOfStock')}
+          <div className={`text-sm px-2 py-1 rounded-full ${currentStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            {currentStock > 0 ? t('productDetails.inStock') : t('productDetails.outOfStock')}
           </div>
         </div>
 
         <p className="text-gray-600 mb-8 leading-relaxed whitespace-pre-line">
           {i18n.language === 'ar' && product.descriptionAr ? product.descriptionAr : product.description || t('productDetails.noDescription')}
         </p>
+
+        {/* Color Variants */}
+        {product.variants?.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-900 mb-3">{t('productDetails.color', 'Color')}</h3>
+            <div className="flex flex-wrap gap-3">
+              {product.variants.map(v => (
+                <button
+                  key={v.color}
+                  onClick={() => setSelectedVariantColor(v.color)}
+                  className={`w-10 h-10 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none ${selectedVariantColor === v.color ? 'border-brand-600 ring-2 ring-brand-400 ring-offset-2 scale-110' : 'border-gray-200 shadow-sm'}`}
+                  style={{ backgroundColor: v.color }}
+                  title={v.label}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Options */}
         {product.options && product.options.length > 0 && (
@@ -251,7 +293,7 @@ export default function ProductDetails() {
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
               }`}
           >
-            {addedTemp ? t('productDetails.addedTemp') : isAdding ? t('productDetails.adding') : product.stock === 0 ? t('productDetails.outOfStock') : missingOptions.length > 0 ? t('productDetails.selectOption', { option: missingOptions[0] }) : t('productDetails.addToCart')}
+            {addedTemp ? t('productDetails.addedTemp') : isAdding ? t('productDetails.adding') : currentStock === 0 ? t('productDetails.outOfStock') : missingOptions.length > 0 ? t('productDetails.selectOption', { option: missingOptions[0] }) : t('productDetails.addToCart')}
           </button>
           <button
             onClick={handleToggleFavorite}

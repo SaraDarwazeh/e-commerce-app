@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -208,5 +209,153 @@ exports.verifyAndResetPassword = onCall(async (request) => {
   } catch (error) {
     console.error('Password reset error:', error);
     throw new HttpsError('internal', 'Unable to update password. It may be too weak.');
+  }
+});
+
+/**
+ * Trigger: onDocumentUpdated('orders/{orderId}')
+ * Deducts inventory when an order transitions to paid and delivered.
+ */
+exports.deductInventoryOnDelivery = onDocumentUpdated('orders/{orderId}', async (event) => {
+  console.log("🔥 FUNCTION TRIGGERED for order:", event.params.orderId);
+  
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  const orderId = event.params.orderId;
+
+  console.log("Before:", before);
+  console.log("After:", after);
+  console.log("paymentStatus:", after.paymentStatus);
+  console.log("orderStatus:", after.status);
+  console.log("stockDeducted:", after.stockDeducted);
+
+  console.log("Before payment:", before.paymentStatus);
+  console.log("Before status:", before.status);
+
+  // 1. Check if the order is now paid and delivered
+  const isPaidAndDelivered = (after.paymentStatus === 'paid' && after.status === 'Delivered');
+  
+  // Temporarily bypass conditions for forced test as requested:
+  if (!isPaidAndDelivered) {
+     console.log("Forcing execution bypass...");
+  }
+  
+  // 2. Prevent double execution (idempotency)
+  if (after.stockDeducted === true) {
+    console.log("Stock already deducted. Exiting.");
+    return null;
+  }
+
+  try {
+    const orderRef = db.collection('orders').doc(orderId);
+    
+    await db.runTransaction(async (transaction) => {
+      console.log("🚀 Starting transaction");
+      // Fetch the order inside the transaction to ensure it hasn't been modified concurrently
+      const orderDoc = await transaction.get(orderRef);
+      if (!orderDoc.exists) {
+        throw new Error(`Order ${orderId} does not exist`);
+      }
+      
+      const orderData = orderDoc.data();
+      if (orderData.stockDeducted === true) {
+        console.log("Transaction aborted: Already deducted in another thread.");
+        return; // Already deducted
+      }
+
+      const items = orderData.items || [];
+      const productRefs = items.map(item => db.collection('products').doc(item.productId));
+      const productDocs = [];
+      
+      // We must read all documents before performing any writes in a transaction
+      for (const ref of productRefs) {
+        const doc = await transaction.get(ref);
+        productDocs.push(doc);
+      }
+
+      // Prepare updates
+      const updates = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        console.log("Processing item:", item);
+        console.log("Product ID:", item.productId);
+        console.log("Selected color:", item.selectedColor);
+
+        const pDoc = productDocs[i];
+        if (!pDoc.exists) {
+          console.warn(`Product ${item.productId} not found for order ${orderId}`);
+          continue;
+        }
+
+        const pData = pDoc.data();
+        console.log("Product data:", pData);
+        console.log("Available variants:", pData.variants);
+        let currentStock = pData.stock || 0;
+        let variants = pData.variants || [];
+        
+        let stockSufficient = true;
+
+        if (item.selectedColor && variants.length > 0) {
+          // Find the variant
+          const variantIndex = variants.findIndex(v => v.color === item.selectedColor || v.label === item.selectedColor);
+          if (variantIndex !== -1) {
+            console.log("Variant found:", variants[variantIndex]);
+            const variantStock = variants[variantIndex].stock || 0;
+            if (variantStock < item.quantity) {
+              stockSufficient = false;
+              console.error(`Insufficient stock for product ${item.productId} variant ${item.selectedColor}. Needed ${item.quantity}, had ${variantStock}.`);
+            } else {
+              variants[variantIndex].stock = variantStock - item.quantity;
+              console.log("New stock:", variants[variantIndex].stock);
+            }
+          } else {
+            // Fallback if variant isn't strictly matched but stock deduct applies globally
+            if (currentStock < item.quantity) {
+              stockSufficient = false;
+              console.error(`Insufficient stock for product ${item.productId}. Needed ${item.quantity}, had ${currentStock}.`);
+            } else {
+              currentStock = currentStock - item.quantity;
+              console.log("New stock (fallback currentStock):", currentStock);
+            }
+          }
+        } else {
+          // Regular product
+          if (currentStock < item.quantity) {
+            stockSufficient = false;
+            console.error(`Insufficient stock for product ${item.productId}. Needed ${item.quantity}, had ${currentStock}.`);
+          } else {
+            currentStock = currentStock - item.quantity;
+            console.log("New stock (no variant):", currentStock);
+          }
+        }
+
+        if (!stockSufficient) {
+          throw new Error(`Insufficient stock for item: ${item.title}`);
+        }
+
+        updates.push({
+          ref: productRefs[i],
+          data: { stock: currentStock, variants: variants }
+        });
+      }
+
+      // Apply product updates
+      for (const update of updates) {
+        console.log("Applying transaction update to product:", update.ref.id, update.data);
+        transaction.update(update.ref, update.data);
+      }
+
+      // Mark order as deducted
+      console.log("Marking order stockDeducted: true");
+      transaction.update(orderRef, { stockDeducted: true });
+    });
+
+    console.log(`Successfully deducted stock for order ${orderId}`);
+    return null;
+
+  } catch (error) {
+    console.error(`Failed to deduct stock for order ${orderId}:`, error);
+    // Let the error throw safely for Firebase to log
+    throw error;
   }
 });

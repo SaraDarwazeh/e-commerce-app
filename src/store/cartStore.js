@@ -3,13 +3,22 @@ import { getUserCart, syncCartItem, removeCartItem, clearUserCart } from '../ser
 import { validateCoupon } from '../services/couponService';
 import useAuthStore from './authStore';
 
-export const generateCartItemId = (productId, selectedOptions = {}) => {
-  if (!selectedOptions) return productId.toString();
-  const optionKeys = Object.keys(selectedOptions).sort();
-  if (optionKeys.length === 0) return productId.toString();
-
-  const optionsString = optionKeys.map(key => `${key}:${selectedOptions[key]}`).join('|');
-  return `${productId}_${encodeURIComponent(optionsString)}`;
+export const generateCartItemId = (productId, selectedOptions = {}, selectedColor = null) => {
+  let idStr = productId.toString();
+  
+  if (selectedColor) {
+    idStr += `_color:${encodeURIComponent(selectedColor)}`;
+  }
+  
+  if (selectedOptions && Object.keys(selectedOptions).length > 0) {
+    const optionKeys = Object.keys(selectedOptions).sort();
+    const optionsString = optionKeys.map(key => `${key}:${selectedOptions[key]}`).join('|');
+    if (optionsString) {
+      idStr += `_${encodeURIComponent(optionsString)}`;
+    }
+  }
+  
+  return idStr;
 };
 
 const GUEST_CART_KEY = 'luxestore_guest_cart';
@@ -49,12 +58,14 @@ const calculateTotals = (items, coupon, deliverySettings, deliveryRegion) => {
       deliveryCost = 0;
     } else if (deliverySettings.freeDeliveryThresholdEnabled && subtotal >= deliverySettings.freeDeliveryThresholdAmount) {
       deliveryCost = 0;
+    } else if (deliveryRegion === 'Pickup') {
+      deliveryCost = 0;
     } else {
       deliveryCost = deliveryRegion === 'Inside' ? (deliverySettings.insideCost ?? 30) : (deliverySettings.westBankCost ?? 15);
     }
   } else {
     // default fallback
-    deliveryCost = deliveryRegion === 'Inside' ? 30 : 15;
+    deliveryCost = deliveryRegion === 'Pickup' ? 0 : (deliveryRegion === 'Inside' ? 30 : 15);
   }
   const finalTotal = Math.max(0, (subtotal - discountAmount) + deliveryCost);
 
@@ -161,12 +172,12 @@ const useCartStore = create((set, get) => ({
     }
   },
 
-  addItem: async (product, quantity = 1, selectedOptions = null) => {
+  addItem: async (product, quantity = 1, selectedOptions = null, selectedColor = null) => {
     const uid = useAuthStore.getState().currentUser?.uid;
     const { items } = get();
 
     const options = selectedOptions || {};
-    const cartItemId = generateCartItemId(product.id, options);
+    const cartItemId = generateCartItemId(product.id, options, selectedColor);
 
     // Match exact cartItemId, or fallback for legacy exact product ID
     const existingIndex = items.findIndex(i => i.cartItemId === cartItemId || (!i.cartItemId && i.productId === product.id));
@@ -186,7 +197,8 @@ const useCartStore = create((set, get) => ({
         image: product.images?.[0] || '',
         category: product.category,
         quantity: quantity,
-        selectedOptions: options
+        selectedOptions: options,
+        selectedColor: selectedColor || null
       };
       updatedItems.push(cartItemData);
     }

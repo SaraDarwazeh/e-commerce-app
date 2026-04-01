@@ -61,9 +61,16 @@ export default function Cart() {
                   </div>
                   <p className="text-sm text-gray-500 capitalize mb-2">{i18n.language === 'ar' && item.categoryAr ? item.categoryAr : item.category?.replace('-', ' ')}</p>
 
-                  {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {Object.entries(item.selectedOptions).map(([key, value]) => {
+                  {(item.selectedColor || (item.selectedOptions && Object.keys(item.selectedOptions).length > 0)) && (
+                    <div className="flex flex-wrap gap-2 mb-4 items-center">
+                      {item.selectedColor && (
+                        <span 
+                          className="w-5 h-5 rounded-full border border-gray-200 shadow-sm flex-shrink-0" 
+                          style={{ backgroundColor: item.selectedColor }} 
+                          title={item.selectedColor}
+                        />
+                      )}
+                      {item.selectedOptions && Object.entries(item.selectedOptions).map(([key, value]) => {
                         const displayVal = value.includes('|') ? value.split('|')[0] : value;
                         return (
                           <span key={key} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">

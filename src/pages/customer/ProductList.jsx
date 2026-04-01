@@ -404,6 +404,16 @@ export default function ProductList() {
                     <Link to={`/product/${product.id}`} className="p-4 flex flex-col flex-1">
                       <h3 className="font-medium text-gray-900 mb-1 truncate" title={displayTitle}>{displayTitle}</h3>
                       <p className="text-sm text-gray-500 mb-2 capitalize">{product.category ? product.category.replace('-', ' ') : t('products.uncategorized')}</p>
+                      
+                      {product.variants?.length > 0 && (
+                        <div className="flex gap-1 mb-2">
+                          {product.variants.slice(0, 5).map((v, i) => (
+                            <div key={i} className="w-3.5 h-3.5 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: v.color }} title={v.label} />
+                          ))}
+                          {product.variants.length > 5 && <span className="text-[10px] text-gray-400 self-center">+{product.variants.length - 5}</span>}
+                        </div>
+                      )}
+
                       <div className="mt-auto flex justify-between items-end pt-1">
                         <div className="flex items-baseline gap-2">
                           <span className={`font-bold text-lg ${salePercent > 0 ? 'text-rose-600' : 'text-gray-900'}`}>₪{Number(product.price).toFixed(2)}</span>
